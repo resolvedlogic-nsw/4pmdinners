@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Welcome — Church Meals{% endblock %}
+{% block content %}
+<div style="display:flex; flex-direction:column; align-items:center; justify-content:center; min-height: 60vh; text-align:center; gap: 0;">
+
+  <div class="animate-in" style="margin-bottom: 32px;">
+    <div style="width:72px; height:72px; background:var(--green-pale); border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 20px; font-size:2rem;">🍽️</div>
+    <h1 style="margin-bottom:8px;">Welcome</h1>
+    <p style="font-size: 1rem; max-width: 280px; margin: 0 auto;">Manage your meal credits quickly and easily.</p>
+  </div>
+
+  <div class="animate-in delay-1" style="width:100%; max-width: 360px; display:flex; flex-direction:column; gap:12px;">
+    <a href="{% url 'meals:family_login' %}" class="btn btn-primary" style="font-size:1.1rem; min-height:60px;">
+      <span>🏠</span> Login as Family
+    </a>
+    <a href="{% url 'meals:kiosk_login' %}" class="btn btn-secondary">
+      <span>🖥️</span> Kiosk Login
+    </a>
+  </div>
+
+</div>
+{% endblock %}

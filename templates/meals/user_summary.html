@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}{{ family.display_name }} — Church Meals{% endblock %}
+{% block header_nav %}
+  <a href="{% url 'meals:change_pin' %}" class="nav-link">PIN</a>
+  <a href="{% url 'meals:family_logout' %}" class="nav-link">Logout</a>
+{% endblock %}
+{% block content %}
+
+<div class="animate-in">
+  <p class="text-muted" style="font-size:0.85rem; text-transform:uppercase; letter-spacing:.06em; font-weight:600; margin-bottom:4px;">Welcome back</p>
+  <h1 style="margin-bottom:16px;">{{ family.display_name }}</h1>
+  <div style="display:flex; align-items:center; gap:10px; margin-bottom:24px; flex-wrap:wrap;">
+    <div class="credit-badge {% if family.credit_units == 0 %}low{% endif %}">
+      <span class="credit-num">{{ family.credit_units }}</span>
+      <span>credits</span>
+    </div>
+    {% if family.credit_units == 0 %}
+      <span style="font-size:0.85rem; color:var(--danger); font-weight:600;">⚠ No credits remaining</span>
+    {% endif %}
+  </div>
+</div>
+
+<form method="post" action="{% url 'meals:generate_qr' %}" id="meal-form">
+  {% csrf_token %}
+  <input type="hidden" name="adult_count" id="adult_count_input" value="0">
+  <input type="hidden" name="child_count" id="child_count_input" value="0">
+
+  <div class="card animate-in delay-1">
+    <h3 style="margin-bottom:16px;">Select meals</h3>
+
+    <div class="meal-row">
+      <div>
+        <div class="meal-label">🧑 Adult</div>
+        <div class="meal-cost">{{ adult_unit_cost }} credit{{ adult_unit_cost|pluralize }} each</div>
+      </div>
+      <div class="meal-counter">
+        <button type="button" class="counter-btn" id="adult-dec" onclick="adjust('adult',-1)" disabled>−</button>
+        <span class="counter-val" id="adult-val">0</span>
+        <button type="button" class="counter-btn" id="adult-inc" onclick="adjust('adult',1)" {% if max_adults == 0 %}disabled{% endif %}>+</button>
+      </div>
+    </div>
+
+    <div class="meal-row">
+      <div>
+        <div class="meal-label">👧 Child</div>
+        <div class="meal-cost">{{ child_unit_cost }} credit{{ child_unit_cost|pluralize }} each</div>
+      </div>
+      <div class="meal-counter">
+        <button type="button" class="counter-btn" id="child-dec" onclick="adjust('child',-1)" disabled>−</button>
+        <span class="counter-val" id="child-val">0</span>
+        <button type="button" class="counter-btn" id="child-inc" onclick="adjust('child',1)" {% if max_children == 0 %}disabled{% endif %}>+</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cost summary -->
+  <div class="card animate-in delay-2" id="cost-summary" style="display:none;">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <span class="text-muted">Total cost</span>
+      <strong id="total-cost-display" style="font-size:1.2rem; font-family:var(--font-display); color:var(--green-deep);">0 credits</strong>
+    </div>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px;">
+      <span class="text-muted">Remaining after</span>
+      <strong id="remaining-display" style="font-size:1rem; color:var(--ink-muted);">— credits</strong>
+    </div>
+  </div>
+
+  <!-- Insufficient credits warning -->
+  <div class="alert alert-warning animate-in" id="insufficient-warning" style="display:none;">
+    ⚠ Insufficient credits. Please see the desk to top up.
+  </div>
+
+  <div class="animate-in delay-3">
+    <button type="submit" class="btn btn-primary" id="generate-btn" disabled>
+      📱 Generate QR Code
+    </button>
+  </div>
+</form>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const adultCost  = {{ adult_unit_cost }};
+const childCost  = {{ child_unit_cost }};
+const balance    = {{ family.credit_units }};
+const maxAdults  = {{ max_adults }};
+const maxChildren = {{ max_children }};
+
+let adults = 0, children = 0;
+
+function adjust(type, delta) {
+  if (type === 'adult') {
+    adults = Math.max(0, Math.min(adults + delta, maxAdults));
+  } else {
+    children = Math.max(0, Math.min(children + delta, maxChildren));
+  }
+  render();
+}
+
+function render() {
+  document.getElementById('adult-val').textContent = adults;
+  document.getElementById('child-val').textContent = children;
+  document.getElementById('adult_count_input').value = adults;
+  document.getElementById('child_count_input').value = children;
+
+  document.getElementById('adult-dec').disabled = adults === 0;
+  document.getElementById('adult-inc').disabled = adults >= maxAdults;
+  document.getElementById('child-dec').disabled = children === 0;
+  document.getElementById('child-inc').disabled = children >= maxChildren;
+
+  const total = adults * adultCost + children * childCost;
+  const remaining = balance - total;
+  const hasSelection = (adults + children) > 0;
+  const canAfford = remaining >= 0;
+
+  document.getElementById('cost-summary').style.display = hasSelection ? '' : 'none';
+  document.getElementById('total-cost-display').textContent = total + ' credit' + (total !== 1 ? 's' : '');
+  document.getElementById('remaining-display').textContent = remaining + ' credits';
+  document.getElementById('insufficient-warning').style.display = (hasSelection && !canAfford) ? '' : 'none';
+  document.getElementById('generate-btn').disabled = !hasSelection || !canAfford;
+}
+
+render();
+</script>
+{% endblock %}

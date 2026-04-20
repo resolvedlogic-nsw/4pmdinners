@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Scanned! — Church Meals{% endblock %}
+{% block content %}
+<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;text-align:center;">
+  <div class="animate-in">
+    <div style="font-size:4rem; margin-bottom:16px;">✅</div>
+    <h1 style="color:var(--success);">Enjoy your meal!</h1>
+    <p>Your credits have been deducted successfully.</p>
+    <div class="credit-badge" style="margin: 16px auto; display:inline-flex;">
+      <span class="credit-num">{{ family.credit_units }}</span>
+      <span>credits remaining</span>
+    </div>
+  </div>
+  <div class="animate-in delay-1 mt-24" style="width:100%;">
+    <a href="{% url 'meals:user_summary' %}" class="btn btn-primary">Back to Summary</a>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,306 @@
+{% extends "base.html" %}
+{% block title %}{{ family.display_name }} — Kiosk{% endblock %}
+{% block body_class %}kiosk-mode{% endblock %}
+{% block header_nav %}
+  <a href="{% url 'meals:kiosk_manual' %}" class="nav-link">← Back</a>
+  <a href="{% url 'meals:kiosk_logout' %}" class="nav-link">Logout</a>
+{% endblock %}
+
+{% block content %}
+<div class="animate-in">
+  <p class="text-muted" style="font-size:0.85rem; text-transform:uppercase; letter-spacing:.06em; font-weight:600; margin-bottom:4px;">Manual deduction</p>
+  <h1 style="margin-bottom:12px;">{{ family.display_name }}</h1>
+  <div class="credit-badge {% if family.credit_units == 0 %}low{% endif %}" style="margin-bottom:20px;">
+    <span class="credit-num">{{ family.credit_units }}</span>
+    <span>credits</span>
+  </div>
+</div>
+
+<div class="card animate-in delay-1" style="background-color: var(--danger-bg); border-left: 4px solid var(--danger);">
+  <h3 style="margin-bottom:16px;">Select meals to deduct</h3>
+
+  <div class="meal-row">
+    <div>
+      <div class="meal-label">🧑 Adult</div>
+      <div class="meal-cost">{{ adult_unit_cost }} credit{{ adult_unit_cost|pluralize }} each</div>
+    </div>
+    <div class="meal-counter">
+      <button type="button" class="counter-btn" id="adult-dec" onclick="adjust('adult',-1)" disabled>−</button>
+      <span class="counter-val" id="adult-val">0</span>
+      <button type="button" class="counter-btn" id="adult-inc" onclick="adjust('adult',1)" {% if max_adults == 0 %}disabled{% endif %}>+</button>
+    </div>
+  </div>
+
+  <div class="meal-row">
+    <div>
+      <div class="meal-label">👧 Child</div>
+      <div class="meal-cost">{{ child_unit_cost }} credit{{ child_unit_cost|pluralize }} each</div>
+    </div>
+    <div class="meal-counter">
+      <button type="button" class="counter-btn" id="child-dec" onclick="adjust('child',-1)" disabled>−</button>
+      <span class="counter-val" id="child-val">0</span>
+      <button type="button" class="counter-btn" id="child-inc" onclick="adjust('child',1)" {% if max_children == 0 %}disabled{% endif %}>+</button>
+    </div>
+  </div>
+</div>
+
+<div class="card animate-in delay-2" id="cost-summary" style="display:none;">
+  <div style="display:flex;justify-content:space-between;align-items:center;">
+    <span class="text-muted">Total cost</span>
+    <strong id="total-display" style="font-family:var(--font-display);font-size:1.2rem;color:var(--green-deep);"></strong>
+  </div>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
+    <span class="text-muted">Balance after</span>
+    <strong id="remaining-display" style="font-size:1rem;color:var(--ink-muted);"></strong>
+  </div>
+</div>
+
+<div class="alert alert-warning animate-in" id="insufficient-warning" style="display:none;">
+  ⚠ Insufficient credits for this selection.
+</div>
+
+<div class="animate-in delay-3">
+  <button class="btn btn-primary" id="deduct-btn" disabled onclick="confirmDeduct()">
+    ✓ Confirm Deduction
+  </button>
+</div>
+
+<div class="card animate-in delay-2.5" style="margin-top:24px; background-color: var(--success-bg); border-left: 4px solid var(--success);">
+  <h3 style="margin-bottom:12px;">Top Up Credits</h3>
+  <p class="text-muted" style="font-size:0.9rem; margin-bottom:12px;">Add newly purchased credits to this family's balance.</p>
+  
+<div style="display: flex; gap: 12px; height: 56px; margin-bottom: 16px; align-items: stretch;">
+    <input type="number" id="topup-amount" min="1" max="100" placeholder="0" 
+           style="flex: 1 1 auto; width: 100%; margin: 0; padding: 0 16px; font-size: 1.5rem; font-weight: bold; text-align: center; border-radius: 8px; border: 2px solid #ccc; box-sizing: border-box;">
+    <button class="btn btn-primary" onclick="confirmTopUp()" 
+            style="flex: 0 0 auto; width: auto; min-width: 120px; white-space: nowrap; margin: 0; background: var(--green-deep); border: none; font-size: 1.2rem; font-weight: bold; border-radius: 8px;">
+      + Add
+    </button>
+  </div>
+
+  <div id="topup-hints" style="display: flex; flex-wrap: wrap; gap: 8px;">
+    </div>
+</div>
+
+{% if recent_transactions %}
+<div class="card animate-in delay-4" style="margin-top:24px;">
+  <h3 style="margin-bottom:12px;">Recent transactions</h3>
+  {% for txn in recent_transactions %}
+  <div class="txn-item">
+    <div>
+      <div style="font-weight:500;">{{ txn.get_reason_display }}</div>
+      <div class="text-muted">{{ txn.timestamp|date:"d M Y, H:i" }}</div>
+      {% if txn.notes %}<div class="text-muted" style="font-size:0.8rem;">{{ txn.notes }}</div>{% endif %}
+    </div>
+    <div class="txn-delta {% if txn.credit_delta >= 0 %}pos{% else %}neg{% endif %}">
+      {% if txn.credit_delta >= 0 %}+{% endif %}{{ txn.credit_delta }}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- Confirm overlay -->
+<div class="overlay" id="confirm-overlay">
+  <div class="overlay-card">
+    <div class="overlay-icon">⚠️</div>
+    <h2 id="confirm-title">Confirm deduction?</h2>
+    <p id="confirm-body" style="margin-bottom:20px;"></p>
+    <div style="display:flex;gap:10px;">
+      <button class="btn btn-secondary" onclick="dismissConfirm()" style="flex:1;">Cancel</button>
+      <button class="btn btn-primary" onclick="doDeduct()" style="flex:1;" id="confirm-ok">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- Result overlay -->
+<div class="overlay" id="result-overlay">
+  <div class="overlay-card">
+    <div class="overlay-icon" id="result-icon"></div>
+    <h2 id="result-title"></h2>
+    <p id="result-body" style="margin-bottom:20px;"></p>
+    <a href="{% url 'meals:kiosk_manual' %}" class="btn btn-secondary" style="display:inline-flex;width:auto;min-width:140px;">Done</a>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const adultCost   = {{ adult_unit_cost }};
+const childCost   = {{ child_unit_cost }};
+const balance     = {{ family.credit_units }};
+const maxAdults   = {{ max_adults }};
+const maxChildren = {{ max_children }};
+const familyId    = {{ family.id }};
+let adults = 0, children = 0;
+
+function adjust(type, delta) {
+  if (type === 'adult')  adults   = Math.max(0, Math.min(adults   + delta, maxAdults));
+  else                   children = Math.max(0, Math.min(children + delta, maxChildren));
+  render();
+}
+
+function render() {
+  document.getElementById('adult-val').textContent   = adults;
+  document.getElementById('child-val').textContent   = children;
+  document.getElementById('adult-dec').disabled = adults === 0;
+  document.getElementById('adult-inc').disabled = adults >= maxAdults;
+  document.getElementById('child-dec').disabled = children === 0;
+  document.getElementById('child-inc').disabled = children >= maxChildren;
+
+  const total = adults * adultCost + children * childCost;
+  const remaining = balance - total;
+  const hasSelection = (adults + children) > 0;
+  const canAfford = remaining >= 0;
+
+  document.getElementById('cost-summary').style.display = hasSelection ? '' : 'none';
+  document.getElementById('total-display').textContent = total + ' credit' + (total !== 1 ? 's' : '');
+  document.getElementById('remaining-display').textContent = remaining + ' credits';
+  document.getElementById('insufficient-warning').style.display = (hasSelection && !canAfford) ? '' : 'none';
+  document.getElementById('deduct-btn').disabled = !hasSelection || !canAfford;
+}
+
+function confirmDeduct() {
+  const total = adults * adultCost + children * childCost;
+  
+  // 1. Set the Title and Body for Deduction
+  document.getElementById('confirm-title').textContent = 'Confirm deduction?';
+  document.getElementById('confirm-body').textContent =
+    `${adults} adult(s) + ${children} child(ren) = ${total} credits from {{ family.display_name }}`;
+    
+  // 2. Safely point the Confirm button to the Deduct function
+  const confirmBtn = document.getElementById('confirm-ok');
+  confirmBtn.onclick = doDeduct;
+
+  // 3. Show the overlay
+  document.getElementById('confirm-overlay').classList.add('show');
+}
+
+function dismissConfirm() {
+  document.getElementById('confirm-overlay').classList.remove('show');
+}
+
+async function doDeduct() {
+  document.getElementById('confirm-ok').disabled = true;
+  document.getElementById('confirm-ok').textContent = 'Processing…';
+  try {
+    const res = await fetch('{% url "meals:api_kiosk_deduct" %}', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+      body: JSON.stringify({ family_id: familyId, adult_count: adults, child_count: children })
+    });
+    const data = await res.json();
+    dismissConfirm();
+    if (data.success) {
+      document.getElementById('result-icon').textContent = '✅';
+      document.getElementById('result-title').textContent = 'Done!';
+      document.getElementById('result-title').style.color = 'var(--success)';
+      document.getElementById('result-body').textContent =
+        `${data.credits_deducted} credits deducted from ${data.family_name}. New balance: ${data.new_balance}.`;
+    } else {
+      document.getElementById('result-icon').textContent = '❌';
+      document.getElementById('result-title').textContent = 'Failed';
+      document.getElementById('result-title').style.color = 'var(--danger)';
+      document.getElementById('result-body').textContent = data.error || 'Something went wrong.';
+    }
+    document.getElementById('result-overlay').classList.add('show');
+  } catch(e) {
+    dismissConfirm();
+    alert('Network error. Please try again.');
+  }
+  document.getElementById('confirm-ok').disabled = false;
+  document.getElementById('confirm-ok').textContent = 'Confirm';
+}
+
+render();
+
+function renderTopUpHints() {
+  const tenAdults = adultCost * 10;
+  const tenKids = childCost * 10;
+  const combo = tenAdults + tenKids;
+
+  document.getElementById('topup-hints').innerHTML = `
+    <button type="button" onclick="fillTopUp(${tenAdults})" style="background:#f1f5f9; border:1px solid #cbd5e1; border-radius:16px; padding:6px 12px; font-size:0.85rem; color:#334155; cursor:pointer;">
+      💡 <b>${tenAdults} cr</b> = 10 Adults
+    </button>
+    <button type="button" onclick="fillTopUp(${tenKids})" style="background:#f1f5f9; border:1px solid #cbd5e1; border-radius:16px; padding:6px 12px; font-size:0.85rem; color:#334155; cursor:pointer;">
+      💡 <b>${tenKids} cr</b> = 10 Kids
+    </button>
+    <button type="button" onclick="fillTopUp(${combo})" style="background:#f1f5f9; border:1px solid #cbd5e1; border-radius:16px; padding:6px 12px; font-size:0.85rem; color:#334155; cursor:pointer;">
+      💡 <b>${combo} cr</b> = 10 of each
+    </button>
+  `;
+}
+
+function fillTopUp(amount) {
+  document.getElementById('topup-amount').value = amount;
+}
+
+// Ensure you call the render function at the very bottom of your script, 
+// right next to where you call render();
+renderTopUpHints();
+
+function confirmTopUp() {
+  const amountInput = document.getElementById('topup-amount').value;
+  const amount = parseInt(amountInput, 10);
+  
+  if (isNaN(amount) || amount <= 0) {
+    alert("Please enter a valid number of credits to add.");
+    return;
+  }
+
+  // 1. Set the Title and Body for Top Up
+  document.getElementById('confirm-title').textContent = 'Confirm Top Up?';
+  document.getElementById('confirm-body').textContent = 
+    `Add ${amount} new credits to {{ family.display_name }}'s balance?`;
+  
+  // 2. Safely point the Confirm button to the Top Up function
+  const confirmBtn = document.getElementById('confirm-ok');
+  confirmBtn.onclick = () => doTopUp(amount);
+  
+  // 3. Show the overlay
+  document.getElementById('confirm-overlay').classList.add('show');
+}
+
+async function doTopUp(amount) {
+  document.getElementById('confirm-ok').disabled = true;
+  document.getElementById('confirm-ok').textContent = 'Processing…';
+  
+  try {
+    const res = await fetch('{% url "meals:api_kiosk_topup" %}', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+      body: JSON.stringify({ family_id: familyId, amount: amount })
+    });
+    
+    const data = await res.json();
+    dismissConfirm();
+    
+    if (data.success) {
+      document.getElementById('result-icon').textContent = '✅';
+      document.getElementById('result-title').textContent = 'Top Up Complete!';
+      document.getElementById('result-title').style.color = 'var(--success)';
+      document.getElementById('result-body').textContent = 
+        `${amount} credits added. New balance is ${data.new_balance} credits.`;
+      
+      // Clear the input field for next time
+      document.getElementById('topup-amount').value = ''; 
+    } else {
+      document.getElementById('result-icon').textContent = '❌';
+      document.getElementById('result-title').textContent = 'Failed';
+      document.getElementById('result-title').style.color = 'var(--danger)';
+      document.getElementById('result-body').textContent = data.error || 'Something went wrong.';
+    }
+    document.getElementById('result-overlay').classList.add('show');
+  } catch(e) {
+    dismissConfirm();
+    alert('Network error. Please try again.');
+  }
+  
+  // Reset the confirm button to its default state for meal deductions
+  document.getElementById('confirm-ok').disabled = false;
+  document.getElementById('confirm-ok').textContent = 'Confirm';
+  document.getElementById('confirm-ok').onclick = doDeduct; 
+}
+</script>
+{% endblock %}

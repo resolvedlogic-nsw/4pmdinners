@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Kiosk Home — Church Meals{% endblock %}
+{% block body_class %}kiosk-mode{% endblock %}
+{% block header_nav %}
+  <a href="{% url 'meals:kiosk_logout' %}" class="nav-link">Logout</a>
+{% endblock %}
+
+{% block content %}
+<div class="animate-in text-center" style="margin-bottom:24px;">
+  <div style="font-size:3rem; margin-bottom:12px;">👋</div>
+  <h1>Kiosk Terminal</h1>
+  <p>How would you like to process meals?</p>
+</div>
+
+<div class="card animate-in delay-1" style="display:flex; flex-direction:column; gap:16px; padding:24px;">
+  <a href="{% url 'meals:kiosk_scanner' %}" class="btn btn-primary" style="font-size:1.2rem; padding:20px; background:var(--green-deep); border:none;">
+    📷 Scan QR Code
+  </a>
+  <a href="{% url 'meals:kiosk_manual' %}" class="btn btn-secondary" style="font-size:1.2rem; padding:20px;">
+    ✏️ Manual Entry
+  </a>
+</div>
+{% endblock %}
