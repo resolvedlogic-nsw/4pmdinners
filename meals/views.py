@@ -51,7 +51,7 @@ def home(request):
 def branch_index(request, branch_slug):
     branch = get_branch_or_404(branch_slug)
     ctx = branch_ctx(branch)
-    return render(request, 'branch_index.html', ctx)
+    return render(request, 'meals/branch_index.html', ctx)
 
 
 # ─── Family auth ──────────────────────────────────────────────────────────────
@@ -76,7 +76,7 @@ def family_login(request, branch_slug):
         ctx['selected_family_id']   = family_id
         ctx['selected_family_name'] = request.POST.get('family_name', '')
 
-    return render(request, 'family_login.html', ctx)
+    return render(request, 'meals/family_login.html', ctx)
 
 
 def family_logout(request, branch_slug):
@@ -104,7 +104,7 @@ def user_summary(request, branch_slug):
     if branch.is_children_programme:
         ctx['children'] = family.children.filter(is_active=True)
 
-    return render(request, 'user_summary.html', ctx)
+    return render(request, 'meals/user_summary.html', ctx)
 
 
 @require_family_session
@@ -174,7 +174,7 @@ def qr_display(request, branch_slug, nonce_id):
     nonce  = get_object_or_404(QRCodeNonce, id=nonce_id, family=family)
 
     if not nonce.is_valid():
-        return render(request, 'qr_expired.html', branch_ctx(branch))
+        return render(request, 'meals/qr_expired.html', branch_ctx(branch))
 
     qr_svg = make_qr_svg(str(nonce.id))
     ctx = branch_ctx(branch)
@@ -188,7 +188,7 @@ def qr_display(request, branch_slug, nonce_id):
     if branch.is_children_programme:
         ctx['selected_children'] = Child.objects.filter(id__in=nonce.child_ids)
 
-    return render(request, 'qr_display.html', ctx)
+    return render(request, 'meals/qr_display.html', ctx)
 
 
 def qr_status(request, branch_slug, nonce_id):
@@ -225,7 +225,7 @@ def change_pin(request, branch_slug):
             messages.success(request, 'PIN updated successfully.')
             return redirect('branch_user_summary', branch_slug=branch_slug)
 
-    return render(request, 'change_pin.html', ctx)
+    return render(request, 'meals/change_pin.html', ctx)
 
 
 # ─── Kiosk auth ───────────────────────────────────────────────────────────────
@@ -242,14 +242,14 @@ def kiosk_login(request, branch_slug):
             return redirect('branch_kiosk_home', branch_slug=branch_slug)
         ctx['error'] = 'Incorrect kiosk PIN.'
 
-    return render(request, 'kiosk_login.html', ctx)
+    return render(request, 'meals/kiosk_login.html', ctx)
 
 
 @require_kiosk_session
 def kiosk_home(request, branch_slug):
     branch = get_branch_or_404(branch_slug)
     ctx = branch_ctx(branch)
-    return render(request, 'kiosk_home.html', ctx)
+    return render(request, 'meals/kiosk_home.html', ctx)
 
 
 def kiosk_logout(request, branch_slug):
@@ -262,7 +262,7 @@ def kiosk_logout(request, branch_slug):
 def kiosk_scanner(request, branch_slug):
     branch = get_branch_or_404(branch_slug)
     ctx = branch_ctx(branch)
-    return render(request, 'kiosk_scanner.html', ctx)
+    return render(request, 'meals/kiosk_scanner.html', ctx)
 
 
 @require_kiosk_session
@@ -271,7 +271,7 @@ def kiosk_manual(request, branch_slug):
     families = Family.objects.filter(branch=branch, is_active=True)
     ctx = branch_ctx(branch)
     ctx['families'] = families
-    return render(request, 'kiosk_manual.html', ctx)
+    return render(request, 'meals/kiosk_manual.html', ctx)
 
 
 @require_kiosk_session
@@ -288,7 +288,7 @@ def kiosk_family_detail(request, branch_slug, family_id):
     })
     if branch.is_children_programme:
         ctx['children'] = family.children.filter(is_active=True)
-    return render(request, 'kiosk_family_detail.html', ctx)
+    return render(request, 'meals/kiosk_family_detail.html', ctx)
 
 
 @require_kiosk_session
@@ -297,7 +297,7 @@ def kiosk_manage_children(request, branch_slug, family_id):
     family = get_object_or_404(Family, id=family_id, branch=branch)
     ctx = branch_ctx(branch)
     ctx.update({'family': family, 'children': family.children.all()})
-    return render(request, 'kiosk_manage_children.html', ctx)
+    return render(request, 'meals/kiosk_manage_children.html', ctx)
 
 
 # ─── Kiosk exports (children's programmes) ───────────────────────────────────
