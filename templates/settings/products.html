@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Products — {{ branch.name }}{% endblock %}
+{% block header_nav %}
+  <a href="{% url 'settings_home' %}" class="nav-link">← Settings</a>
+{% endblock %}
+{% block content %}
+
+<div class="animate-in">
+  <p class="text-muted" style="font-size:0.85rem; text-transform:uppercase; letter-spacing:.06em; font-weight:600; margin-bottom:4px;">{{ branch.icon }} {{ branch.name }}</p>
+  <h1 style="margin-bottom:4px;">Products</h1>
+  <p>Define what families can purchase and what each costs.</p>
+</div>
+
+<!-- Existing products -->
+{% if products %}
+<div class="card animate-in delay-1" style="padding:0;">
+  {% for product in products %}
+  <div style="display:flex; justify-content:space-between; align-items:center; padding:16px 20px; border-bottom:1px solid var(--cream-dark); {% if not product.is_active %}opacity:0.5;{% endif %}">
+    <div>
+      <div style="font-weight:600; font-size:1rem;">{{ product.icon }} {{ product.name }}</div>
+      <div class="text-muted" style="font-size:0.85rem;">
+        {{ product.credit_cost }} cr each &nbsp;·&nbsp;
+        Top-up: {{ product.topup_bundle }}× = {{ product.topup_credits }} cr
+        {% if not product.is_active %}&nbsp;·&nbsp;<span style="color:var(--danger);">Inactive</span>{% endif %}
+      </div>
+    </div>
+    <form method="post" action="{% url 'settings_product_delete' product.id %}"
+          onsubmit="return confirm('Deactivate {{ product.name }}?');">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-danger btn-sm" style="width:auto;" title="Deactivate">🗑</button>
+    </form>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- Add product form -->
+<div class="card animate-in delay-2">
+  <h3 style="margin-bottom:16px;">Add Product</h3>
+  <form method="post">
+    {% csrf_token %}
+
+    <div class="form-group">
+      <label>Product Name</label>
+      <input type="text" name="name" placeholder="e.g. Adult Meal" required>
+    </div>
+
+    <div style="display:flex; gap:12px;">
+      <div class="form-group" style="flex:1;">
+        <label>Icon (emoji)</label>
+        <input type="text" name="icon" placeholder="🍽️" maxlength="10" value="🎟️">
+      </div>
+      <div class="form-group" style="flex:1;">
+        <label>Display Order</label>
+        <input type="number" name="order" min="0" value="0">
+      </div>
+    </div>
+
+    <div style="display:flex; gap:12px;">
+      <div class="form-group" style="flex:1;">
+        <label>Credit Cost (per item)</label>
+        <input type="number" name="credit_cost" step="0.5" min="0" placeholder="1" required>
+        <p class="text-muted" style="font-size:0.75rem; margin-top:4px;">Can be 0.5 for half-credits</p>
+      </div>
+    </div>
+
+    <div style="display:flex; gap:12px;">
+      <div class="form-group" style="flex:1;">
+        <label>Top-up Bundle Size</label>
+        <input type="number" name="topup_bundle" min="1" placeholder="10" value="10">
+        <p class="text-muted" style="font-size:0.75rem; margin-top:4px;">e.g. "10 sessions"</p>
+      </div>
+      <div class="form-group" style="flex:1;">
+        <label>Credits per Bundle</label>
+        <input type="number" name="topup_credits" min="1" placeholder="10" value="10">
+        <p class="text-muted" style="font-size:0.75rem; margin-top:4px;">Credits added when bundle purchased</p>
+      </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Add Product</button>
+  </form>
+</div>
+
+<div style="text-align:center; margin-top:8px;">
+  <a href="{% url 'settings_home' %}" class="text-muted" style="text-decoration:none; font-size:0.875rem;">← Back to Settings</a>
+</div>
+
+{% endblock %}

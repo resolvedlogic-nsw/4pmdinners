@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block title %}{{ action }} Branch — Settings{% endblock %}
+{% block header_nav %}
+  <a href="{% url 'settings_home' %}" class="nav-link">← Settings</a>
+{% endblock %}
+{% block content %}
+
+<div class="animate-in">
+  <h1>{{ action }} Branch</h1>
+  <p>{% if action == 'Add' %}Create a new programme branch.{% else %}Update this branch's details.{% endif %}</p>
+</div>
+
+<form method="post" class="animate-in delay-1">
+  {% csrf_token %}
+
+  <div class="card">
+    <div class="form-group">
+      <label for="name">Branch Name</label>
+      <input type="text" name="name" id="name" placeholder="e.g. 4pm Dinners" value="{{ branch.name|default:'' }}" required>
+    </div>
+
+    <div class="form-group">
+      <label for="slug">URL Slug</label>
+      <input type="text" name="slug" id="slug" placeholder="e.g. dinners" value="{{ branch.slug|default:'' }}" required
+             pattern="[a-z0-9-]+" title="Lowercase letters, numbers and hyphens only">
+      <p class="text-muted" style="font-size:0.8rem; margin-top:4px;">Used in URLs: /dinners/, /coffee/ etc. Lowercase, no spaces.</p>
+    </div>
+
+    <div class="form-group">
+      <label for="branch_type">Branch Type</label>
+      <select name="branch_type" id="branch_type">
+        <option value="dinners"  {% if branch.branch_type == 'dinners'  %}selected{% endif %}>4pm Dinners</option>
+        <option value="coffee"   {% if branch.branch_type == 'coffee'   %}selected{% endif %}>Coffee Sundays</option>
+        <option value="jivers"   {% if branch.branch_type == 'jivers'   %}selected{% endif %}>Junior Jivers</option>
+        <option value="kids"     {% if branch.branch_type == 'kids'     %}selected{% endif %}>Lighthouse Kids</option>
+        <option value="youth"    {% if branch.branch_type == 'youth'    %}selected{% endif %}>Lighthouse Youth</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label for="theme">Colour Theme</label>
+      <select name="theme" id="theme">
+        <option value="green"  {% if branch.theme == 'green'  %}selected{% endif %}>🟢 Green (Dinners)</option>
+        <option value="amber"  {% if branch.theme == 'amber'  %}selected{% endif %}>🟡 Amber (Coffee)</option>
+        <option value="coral"  {% if branch.theme == 'coral'  %}selected{% endif %}>🟠 Coral (Junior Jivers)</option>
+        <option value="blue"   {% if branch.theme == 'blue'   %}selected{% endif %}>🔵 Blue (Kids)</option>
+        <option value="purple" {% if branch.theme == 'purple' %}selected{% endif %}>🟣 Purple (Youth)</option>
+        <option value="slate"  {% if branch.theme == 'slate'  %}selected{% endif %}>⚫ Slate (Other)</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label for="icon">Icon (emoji)</label>
+      <input type="text" name="icon" id="icon" placeholder="🍽️" value="{{ branch.icon|default:'🎟️' }}" maxlength="10">
+    </div>
+
+    <div class="form-group">
+      <label for="description">Description (shown on home page)</label>
+      <input type="text" name="description" id="description" placeholder="e.g. Weekly Sunday dinners" value="{{ branch.description|default:'' }}">
+    </div>
+
+    <div class="form-group">
+      <label for="kiosk_pin">Kiosk PIN {% if action == 'Edit' %}(leave blank to keep current){% endif %}</label>
+      <input type="tel" name="kiosk_pin" id="kiosk_pin" class="pin-input" maxlength="8" inputmode="numeric"
+             placeholder="••••" {% if action == 'Add' %}required{% endif %}>
+    </div>
+
+    <div class="form-group">
+      <label for="order">Display Order</label>
+      <input type="number" name="order" id="order" min="0" value="{{ branch.order|default:'0' }}">
+    </div>
+
+    <div style="display:flex; gap:16px; align-items:center; padding:12px 0; border-top:1px solid var(--cream-dark); margin-top:8px;">
+      <label style="display:flex; align-items:center; gap:8px; text-transform:none; letter-spacing:normal; font-size:1rem; cursor:pointer;">
+        <input type="checkbox" name="is_children_programme" id="is_children_programme"
+               {% if branch.is_children_programme %}checked{% endif %}
+               style="width:20px; height:20px; accent-color:var(--green-mid);">
+        Children's programme (uses child check-in + attendance records)
+      </label>
+    </div>
+
+    {% if action == 'Edit' %}
+    <div style="display:flex; gap:16px; align-items:center; padding:12px 0; border-top:1px solid var(--cream-dark);">
+      <label style="display:flex; align-items:center; gap:8px; text-transform:none; letter-spacing:normal; font-size:1rem; cursor:pointer;">
+        <input type="checkbox" name="is_active" id="is_active"
+               {% if branch.is_active %}checked{% endif %}
+               style="width:20px; height:20px; accent-color:var(--green-mid);">
+        Branch is active (visible on home page)
+      </label>
+    </div>
+    {% endif %}
+  </div>
+
+  <div style="display:flex; gap:12px;">
+    <a href="{% url 'settings_home' %}" class="btn btn-secondary">Cancel</a>
+    <button type="submit" class="btn btn-primary">{{ action }} Branch</button>
+  </div>
+</form>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Auto-generate slug from name if slug is empty
+document.getElementById('name').addEventListener('input', function() {
+  const slugEl = document.getElementById('slug');
+  if (!slugEl.dataset.touched) {
+    slugEl.value = this.value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  }
+});
+document.getElementById('slug').addEventListener('input', function() {
+  this.dataset.touched = '1';
+});
+</script>
+{% endblock %}

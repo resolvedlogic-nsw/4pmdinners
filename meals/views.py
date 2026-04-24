@@ -1,425 +1,686 @@
 import json
+import csv
 import qrcode
 import qrcode.image.svg
 import io
-from datetime import timedelta
+from decimal import Decimal
+from datetime import date
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse, HttpResponse
-from django.views.decorators.http import require_POST, require_GET
-from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
 from django.contrib import messages
 from django.utils import timezone
-from django.db import transaction
+from django.contrib.admin.views.decorators import staff_member_required
 
-from .models import Family, MealPricing, Transaction, QRCodeNonce
-from .utils import hash_pin, check_pin, require_family_session, require_kiosk_session
-
-KIOSK_PIN = '1234'  # In production, store in env/settings
+from .models import Branch, Product, Family, Child, Transaction, QRCodeNonce, AttendanceRecord, AttendanceChild
+from .utils import hash_pin, check_pin, require_family_session, require_kiosk_session, get_theme_css
 
 
-# ─── Public ────────────────────────────────────────────────────────────────────
+# ─── Helpers ──────────────────────────────────────────────────────────────────
 
-def index(request):
-    if request.session.get('family_id'):
-        return redirect('meals:user_summary')
-    if request.session.get('kiosk_authenticated'):
-        return redirect('meals:kiosk_home')
-    return render(request, 'meals/index.html')
+def get_branch_or_404(slug):
+    return get_object_or_404(Branch, slug=slug, is_active=True)
 
 
-def families_json(request):
-    """Lightweight endpoint for client-side family search."""
-    families = Family.objects.filter(is_active=True).values('id', 'display_name', 'surname')
+def branch_ctx(branch):
+    """Base context injected into every branch-scoped view."""
+    return {
+        'branch': branch,
+        'theme_css': get_theme_css(branch.theme),
+    }
+
+
+def make_qr_svg(data: str) -> str:
+    factory = qrcode.image.svg.SvgPathImage
+    img = qrcode.make(data, image_factory=factory, box_size=10, border=2)
+    buf = io.BytesIO()
+    img.save(buf)
+    return buf.getvalue().decode('utf-8')
+
+
+# ─── Home ─────────────────────────────────────────────────────────────────────
+
+def home(request):
+    branches = Branch.objects.filter(is_active=True)
+    return render(request, 'home.html', {'branches': branches})
+
+
+# ─── Branch index (landing page per branch) ───────────────────────────────────
+
+def branch_index(request, branch_slug):
+    branch = get_branch_or_404(branch_slug)
+    ctx = branch_ctx(branch)
+    return render(request, 'branch_index.html', ctx)
+
+
+# ─── Family auth ──────────────────────────────────────────────────────────────
+
+def family_login(request, branch_slug):
+    branch = get_branch_or_404(branch_slug)
+    ctx = branch_ctx(branch)
+    ctx['error'] = None
+
+    if request.method == 'POST':
+        family_id = request.POST.get('family_id')
+        pin       = request.POST.get('pin', '')
+        try:
+            family = Family.objects.get(id=family_id, branch=branch, is_active=True)
+            if check_pin(pin, family.pin_hash):
+                request.session['family_id']   = family.id
+                request.session['branch_slug'] = branch_slug
+                return redirect('branch_user_summary', branch_slug=branch_slug)
+            ctx['error'] = 'Incorrect PIN.'
+        except Family.DoesNotExist:
+            ctx['error'] = 'Family not found.'
+        ctx['selected_family_id']   = family_id
+        ctx['selected_family_name'] = request.POST.get('family_name', '')
+
+    return render(request, 'family_login.html', ctx)
+
+
+def family_logout(request, branch_slug):
+    request.session.flush()
+    return redirect('branch_index', branch_slug=branch_slug)
+
+
+def families_json(request, branch_slug):
+    branch   = get_branch_or_404(branch_slug)
+    families = Family.objects.filter(branch=branch, is_active=True).values('id', 'surname', 'display_name')
     return JsonResponse({'families': list(families)})
 
 
-# ─── Family Auth ───────────────────────────────────────────────────────────────
-
-def family_login(request):
-    if request.method == 'POST':
-        family_id = request.POST.get('family_id')
-        pin = request.POST.get('pin', '')
-        try:
-            family = Family.objects.get(id=family_id, is_active=True)
-        except Family.DoesNotExist:
-            return render(request, 'meals/family_login.html', {'error': 'Family not found.'})
-
-        if check_pin(pin, family.pin_hash):
-            request.session['family_id'] = family.id
-            request.session.set_expiry(60 * 60 * 24 * 180)
-            return redirect('meals:user_summary')
-        else:
-            return render(request, 'meals/family_login.html', {
-                'error': 'Incorrect PIN. Please try again.',
-                'selected_family_id': family_id,
-                'selected_family_name': family.display_name,
-            })
-
-    return render(request, 'meals/family_login.html')
-
-
-def family_logout(request):
-    request.session.flush()
-    return redirect('meals:index')
-
-
-# ─── Family Views ──────────────────────────────────────────────────────────────
+# ─── Family summary & QR flow ─────────────────────────────────────────────────
 
 @require_family_session
-def user_summary(request):
-    family = get_object_or_404(Family, id=request.session['family_id'])
-    pricing = MealPricing.get_active_pricing()
-    context = {
-        'family': family,
-        'adult_unit_cost': pricing['adult'],
-        'child_unit_cost': pricing['child'],
-        'max_adults': family.max_meals_of_type('adult'),
-        'max_children': family.max_meals_of_type('child'),
-    }
-    return render(request, 'meals/user_summary.html', context)
+def user_summary(request, branch_slug):
+    branch = get_branch_or_404(branch_slug)
+    family = get_object_or_404(Family, id=request.session['family_id'], branch=branch)
+    products = branch.products.filter(is_active=True)
+    ctx = branch_ctx(branch)
+    ctx['family']   = family
+    ctx['products'] = products
+
+    if branch.is_children_programme:
+        ctx['children'] = family.children.filter(is_active=True)
+
+    return render(request, 'user_summary.html', ctx)
 
 
 @require_family_session
 @require_POST
-def generate_qr(request):
-    family = get_object_or_404(Family, id=request.session['family_id'])
-    pricing = MealPricing.get_active_pricing()
+def generate_qr(request, branch_slug):
+    branch = get_branch_or_404(branch_slug)
+    family = get_object_or_404(Family, id=request.session['family_id'], branch=branch)
+    products = branch.products.filter(is_active=True)
 
-    try:
-        adult_count = int(request.POST.get('adult_count', 0))
-        child_count = int(request.POST.get('child_count', 0))
-    except (ValueError, TypeError):
-        messages.error(request, 'Invalid meal selection.')
-        return redirect('meals:user_summary')
-
-    if adult_count < 0 or child_count < 0 or (adult_count + child_count) == 0:
-        messages.error(request, 'Please select at least one meal.')
-        return redirect('meals:user_summary')
-
-    total_cost = adult_count * pricing['adult'] + child_count * pricing['child']
-
-    with transaction.atomic():
-        family = Family.objects.select_for_update().get(id=family.id)
-        if family.credit_units < total_cost:
+    if branch.is_children_programme:
+        # Child-selection based
+        child_ids = [int(x) for x in request.POST.getlist('child_ids') if x.isdigit()]
+        children  = Child.objects.filter(id__in=child_ids, family=family, is_active=True)
+        actual_ids = list(children.values_list('id', flat=True))
+        count = len(actual_ids)
+        if count == 0:
+            messages.error(request, 'Please select at least one child.')
+            return redirect('branch_user_summary', branch_slug=branch_slug)
+        # 1 credit per child
+        total_cost = Decimal(count)
+        if not family.can_afford(total_cost):
             messages.error(request, 'Insufficient credits.')
-            return redirect('meals:user_summary')
-
+            return redirect('branch_user_summary', branch_slug=branch_slug)
         nonce = QRCodeNonce.objects.create(
             family=family,
             credit_units=total_cost,
-            adult_count=adult_count,
-            child_count=child_count,
-            created_at=timezone.now(),
-            expires_at=timezone.now() + timedelta(minutes=30),
+            child_ids=actual_ids,
+        )
+    else:
+        # Counter-based (dinners, coffee, etc.)
+        total_cost = Decimal(0)
+        product_quantities = {}
+        for product in products:
+            qty_str = request.POST.get(f'qty_{product.id}', '0')
+            try:
+                qty = int(qty_str)
+            except ValueError:
+                qty = 0
+            qty = max(0, qty)
+            if qty > 0:
+                product_quantities[product.id] = qty
+                total_cost += product.credit_cost * qty
+
+        if total_cost == 0:
+            messages.error(request, 'Please select at least one item.')
+            return redirect('branch_user_summary', branch_slug=branch_slug)
+        if not family.can_afford(total_cost):
+            messages.error(request, 'Insufficient credits.')
+            return redirect('branch_user_summary', branch_slug=branch_slug)
+
+        # Store product breakdown in notes via adult/child shorthand for dinners
+        # For generic multi-product branches we store json in child_ids field
+        product_list = [{'id': pid, 'qty': qty} for pid, qty in product_quantities.items()]
+        nonce = QRCodeNonce.objects.create(
+            family=family,
+            credit_units=total_cost,
+            child_ids=product_list,  # repurposed as generic payload
         )
 
-    return redirect('meals:qr_display', nonce_id=nonce.id)
+    return redirect('branch_qr_display', branch_slug=branch_slug, nonce_id=nonce.id)
 
 
 @require_family_session
-def qr_display(request, nonce_id):
-    family = get_object_or_404(Family, id=request.session['family_id'])
-    nonce = get_object_or_404(QRCodeNonce, id=nonce_id, family=family)
+def qr_display(request, branch_slug, nonce_id):
+    branch = get_branch_or_404(branch_slug)
+    family = get_object_or_404(Family, id=request.session['family_id'], branch=branch)
+    nonce  = get_object_or_404(QRCodeNonce, id=nonce_id, family=family)
 
-    if nonce.used:
-        return render(request, 'meals/qr_success.html', {'nonce': nonce, 'family': family})
+    if not nonce.is_valid():
+        return render(request, 'qr_expired.html', branch_ctx(branch))
 
-    if timezone.now() > nonce.expires_at:
-        return render(request, 'meals/qr_expired.html', {'family': family})
-
-    payload = f"v1|{family.id}|{nonce.id}"
-    svg_data = _generate_qr_svg(payload)
-
-    context = {
-        'family': family,
-        'nonce': nonce,
-        'qr_svg': svg_data,
+    qr_svg = make_qr_svg(str(nonce.id))
+    ctx = branch_ctx(branch)
+    ctx.update({
+        'nonce':          nonce,
+        'family':         family,
+        'qr_svg':         qr_svg,
         'expires_at_iso': nonce.expires_at.isoformat(),
-    }
-    return render(request, 'meals/qr_display.html', context)
+    })
+
+    if branch.is_children_programme:
+        ctx['selected_children'] = Child.objects.filter(id__in=nonce.child_ids)
+
+    return render(request, 'qr_display.html', ctx)
 
 
-@require_GET
-def qr_status(request, nonce_id):
-    """Polling endpoint: returns whether nonce has been used."""
-    try:
-        nonce = QRCodeNonce.objects.get(id=nonce_id)
-    except QRCodeNonce.DoesNotExist:
-        return JsonResponse({'status': 'not_found'}, status=404)
-
+def qr_status(request, branch_slug, nonce_id):
+    nonce = get_object_or_404(QRCodeNonce, id=nonce_id)
     if nonce.used:
-        return JsonResponse({'status': 'used', 'balance': nonce.family.credit_units})
-    if timezone.now() > nonce.expires_at:
+        return JsonResponse({'status': 'used'})
+    if not nonce.is_valid():
         return JsonResponse({'status': 'expired'})
     return JsonResponse({'status': 'pending'})
 
 
+# ─── Change PIN ───────────────────────────────────────────────────────────────
+
 @require_family_session
-def change_pin(request):
-    family = get_object_or_404(Family, id=request.session['family_id'])
+def change_pin(request, branch_slug):
+    branch = get_branch_or_404(branch_slug)
+    family = get_object_or_404(Family, id=request.session['family_id'], branch=branch)
+    ctx = branch_ctx(branch)
+    ctx['family'] = family
+
     if request.method == 'POST':
-        current_pin = request.POST.get('current_pin', '')
+        current = request.POST.get('current_pin', '')
         new_pin = request.POST.get('new_pin', '')
-        confirm_pin = request.POST.get('confirm_pin', '')
+        confirm = request.POST.get('confirm_pin', '')
+        if not check_pin(current, family.pin_hash):
+            ctx['error'] = 'Current PIN is incorrect.'
+        elif len(new_pin) < 4:
+            ctx['error'] = 'New PIN must be at least 4 digits.'
+        elif new_pin != confirm:
+            ctx['error'] = 'New PINs do not match.'
+        else:
+            family.pin_hash = hash_pin(new_pin)
+            family.save(update_fields=['pin_hash'])
+            messages.success(request, 'PIN updated successfully.')
+            return redirect('branch_user_summary', branch_slug=branch_slug)
 
-        if not check_pin(current_pin, family.pin_hash):
-            return render(request, 'meals/change_pin.html', {
-                'family': family, 'error': 'Current PIN is incorrect.'
-            })
-        if len(new_pin) < 4 or len(new_pin) > 6 or not new_pin.isdigit():
-            return render(request, 'meals/change_pin.html', {
-                'family': family, 'error': 'PIN must be 4–6 digits.'
-            })
-        if new_pin != confirm_pin:
-            return render(request, 'meals/change_pin.html', {
-                'family': family, 'error': 'PINs do not match.'
-            })
-
-        family.pin_hash = hash_pin(new_pin)
-        family.save(update_fields=['pin_hash'])
-        messages.success(request, 'PIN updated successfully.')
-        return redirect('meals:user_summary')
-
-    return render(request, 'meals/change_pin.html', {'family': family})
+    return render(request, 'change_pin.html', ctx)
 
 
-# ─── Kiosk Auth ────────────────────────────────────────────────────────────────
+# ─── Kiosk auth ───────────────────────────────────────────────────────────────
 
-def kiosk_login(request):
+def kiosk_login(request, branch_slug):
+    branch = get_branch_or_404(branch_slug)
+    ctx = branch_ctx(branch)
+
     if request.method == 'POST':
         pin = request.POST.get('pin', '')
-        if pin == KIOSK_PIN:
+        if check_pin(pin, branch.kiosk_pin_hash):
             request.session['kiosk_authenticated'] = True
-            request.session.set_expiry(60 * 60 * 12)
-            return redirect('meals:kiosk_home')
-        return render(request, 'meals/kiosk_login.html', {'error': 'Incorrect kiosk PIN.'})
-    return render(request, 'meals/kiosk_login.html')
+            request.session['kiosk_branch_slug']   = branch_slug
+            return redirect('branch_kiosk_home', branch_slug=branch_slug)
+        ctx['error'] = 'Incorrect kiosk PIN.'
+
+    return render(request, 'kiosk_login.html', ctx)
 
 
-def kiosk_logout(request):
+@require_kiosk_session
+def kiosk_home(request, branch_slug):
+    branch = get_branch_or_404(branch_slug)
+    ctx = branch_ctx(branch)
+    return render(request, 'kiosk_home.html', ctx)
+
+
+def kiosk_logout(request, branch_slug):
     request.session.pop('kiosk_authenticated', None)
-    return redirect('meals:index')
-
-
-# ─── Kiosk Views ───────────────────────────────────────────────────────────────
-
-@require_kiosk_session
-def kiosk_scanner(request):
-    return render(request, 'meals/kiosk_scanner.html')
+    request.session.pop('kiosk_branch_slug', None)
+    return redirect('branch_kiosk_login', branch_slug=branch_slug)
 
 
 @require_kiosk_session
-def kiosk_manual(request):
-    families = Family.objects.filter(is_active=True).order_by('surname', 'display_name')
-    return render(request, 'meals/kiosk_manual.html', {'families': families})
+def kiosk_scanner(request, branch_slug):
+    branch = get_branch_or_404(branch_slug)
+    ctx = branch_ctx(branch)
+    return render(request, 'kiosk_scanner.html', ctx)
 
 
 @require_kiosk_session
-def kiosk_family_detail(request, family_id):
-    family = get_object_or_404(Family, id=family_id, is_active=True)
-    pricing = MealPricing.get_active_pricing()
-    recent_transactions = family.transactions.all()[:10]
-    context = {
-        'family': family,
-        'adult_unit_cost': pricing['adult'],
-        'child_unit_cost': pricing['child'],
-        'max_adults': family.max_meals_of_type('adult'),
-        'max_children': family.max_meals_of_type('child'),
-        'recent_transactions': recent_transactions,
+def kiosk_manual(request, branch_slug):
+    branch   = get_branch_or_404(branch_slug)
+    families = Family.objects.filter(branch=branch, is_active=True)
+    ctx = branch_ctx(branch)
+    ctx['families'] = families
+    return render(request, 'kiosk_manual.html', ctx)
+
+
+@require_kiosk_session
+def kiosk_family_detail(request, branch_slug, family_id):
+    branch  = get_branch_or_404(branch_slug)
+    family  = get_object_or_404(Family, id=family_id, branch=branch)
+    products = branch.products.filter(is_active=True)
+    recent_txns = family.transactions.all()[:10]
+    ctx = branch_ctx(branch)
+    ctx.update({
+        'family':              family,
+        'products':            products,
+        'recent_transactions': recent_txns,
+    })
+    if branch.is_children_programme:
+        ctx['children'] = family.children.filter(is_active=True)
+    return render(request, 'kiosk_family_detail.html', ctx)
+
+
+@require_kiosk_session
+def kiosk_manage_children(request, branch_slug, family_id):
+    branch = get_branch_or_404(branch_slug)
+    family = get_object_or_404(Family, id=family_id, branch=branch)
+    ctx = branch_ctx(branch)
+    ctx.update({'family': family, 'children': family.children.all()})
+    return render(request, 'kiosk_manage_children.html', ctx)
+
+
+# ─── Kiosk exports (children's programmes) ───────────────────────────────────
+
+@require_kiosk_session
+def kiosk_export_attendance(request, branch_slug):
+    branch = get_branch_or_404(branch_slug)
+    session_date_str = request.GET.get('date', str(date.today()))
+    try:
+        session_date = date.fromisoformat(session_date_str)
+    except ValueError:
+        session_date = date.today()
+
+    records = (
+        AttendanceRecord.objects
+        .filter(branch=branch, session_date=session_date)
+        .prefetch_related('children_present__child', 'family')
+    )
+
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = f'attachment; filename="{branch_slug}_attendance_{session_date}.csv"'
+    writer = csv.writer(response)
+    writer.writerow(['Family', 'Primary Contact', 'Child', 'Check-in Time'])
+    for record in records:
+        for cp in record.children_present.all():
+            writer.writerow([
+                record.family.display_name,
+                record.family.primary_contact,
+                cp.child.full_name,
+                record.timestamp.strftime('%H:%M'),
+            ])
+    return response
+
+
+@require_kiosk_session
+def kiosk_export_roster(request, branch_slug):
+    branch   = get_branch_or_404(branch_slug)
+    families = Family.objects.filter(branch=branch, is_active=True).prefetch_related('children')
+
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = f'attachment; filename="{branch_slug}_roster.csv"'
+    writer = csv.writer(response)
+    writer.writerow(['Family', 'Primary Contact', 'Child First Name', 'Child Last Name', 'DOB', 'Active'])
+    for family in families:
+        for child in family.children.all():
+            writer.writerow([
+                family.display_name,
+                family.primary_contact,
+                child.first_name,
+                child.last_name,
+                child.date_of_birth or '',
+                'Yes' if child.is_active else 'No',
+            ])
+    return response
+
+
+# ─── API: QR redemption ───────────────────────────────────────────────────────
+
+@require_POST
+def api_redeem_qr(request, branch_slug):
+    branch = get_branch_or_404(branch_slug)
+    if not request.session.get('kiosk_authenticated') or request.session.get('kiosk_branch_slug') != branch_slug:
+        return JsonResponse({'success': False, 'error': 'Not authorised.'}, status=403)
+
+    try:
+        payload = json.loads(request.body)
+        nonce_id = payload.get('payload') or payload.get('nonce_id')
+        nonce = QRCodeNonce.objects.select_related('family').get(id=nonce_id)
+    except (json.JSONDecodeError, QRCodeNonce.DoesNotExist, Exception):
+        return JsonResponse({'success': False, 'error': 'Invalid QR code.'})
+
+    if nonce.family.branch_id != branch.id:
+        return JsonResponse({'success': False, 'error': 'QR code is for a different branch.'})
+
+    if not nonce.is_valid():
+        return JsonResponse({'success': False, 'error': 'QR code has expired or already been used.'})
+
+    family = nonce.family
+    family.credit_units -= nonce.credit_units
+    family.save(update_fields=['credit_units'])
+
+    txn = Transaction.objects.create(
+        family=family,
+        credit_delta=-nonce.credit_units,
+        reason='qr_redemption',
+        performed_by='system_qr',
+    )
+
+    nonce.used = True
+    nonce.save(update_fields=['used'])
+
+    response_data = {
+        'success':         True,
+        'family_name':     family.display_name,
+        'credits_deducted': float(nonce.credit_units),
+        'new_balance':     float(family.credit_units),
     }
-    return render(request, 'meals/kiosk_family_detail.html', context)
 
-
-# ─── API Endpoints ─────────────────────────────────────────────────────────────
-
-@csrf_exempt
-@require_POST
-@require_kiosk_session
-def api_redeem_qr(request):
-    try:
-        data = json.loads(request.body)
-        payload = data.get('payload', '')
-    except (json.JSONDecodeError, AttributeError):
-        return JsonResponse({'success': False, 'error': 'Invalid request.'}, status=400)
-
-    parts = payload.split('|')
-    if len(parts) != 3 or parts[0] != 'v1':
-        return JsonResponse({'success': False, 'error': 'Invalid QR code format.'}, status=400)
-
-    try:
-        family_id = int(parts[1])
-        nonce_id = parts[2]
-    except (ValueError, IndexError):
-        return JsonResponse({'success': False, 'error': 'Malformed QR code.'}, status=400)
-
-    with transaction.atomic():
-        try:
-            nonce = QRCodeNonce.objects.select_for_update().get(id=nonce_id, family_id=family_id)
-        except QRCodeNonce.DoesNotExist:
-            return JsonResponse({'success': False, 'error': 'QR code not found.'}, status=404)
-
-        if not nonce.is_valid():
-            msg = 'QR code already used.' if nonce.used else 'QR code has expired.'
-            return JsonResponse({'success': False, 'error': msg}, status=400)
-
-        family = Family.objects.select_for_update().get(id=family_id)
-        if family.credit_units < nonce.credit_units:
-            return JsonResponse({'success': False, 'error': 'Insufficient credits.'}, status=400)
-
-        family.credit_units -= nonce.credit_units
-        family.save(update_fields=['credit_units'])
-
-        nonce.used = True
-        nonce.save(update_fields=['used'])
-
-        Transaction.objects.create(
-            family=family,
-            credit_delta=-nonce.credit_units,
-            reason='qr_redemption',
-            performed_by='system_qr',
-            notes=f"{nonce.adult_count} adult(s), {nonce.child_count} child(ren)",
-        )
-
-    return JsonResponse({
-        'success': True,
-        'family_name': family.display_name,
-        'credits_deducted': nonce.credit_units,
-        'new_balance': family.credit_units,
-        'adult_count': nonce.adult_count,
-        'child_count': nonce.child_count,
-    })
-
-
-@csrf_exempt
-@require_POST
-@require_kiosk_session
-def api_kiosk_deduct(request):
-    try:
-        data = json.loads(request.body)
-        family_id = int(data.get('family_id'))
-        adult_count = int(data.get('adult_count', 0))
-        child_count = int(data.get('child_count', 0))
-    except (ValueError, TypeError, json.JSONDecodeError):
-        return JsonResponse({'success': False, 'error': 'Invalid request data.'}, status=400)
-
-    if adult_count < 0 or child_count < 0 or (adult_count + child_count) == 0:
-        return JsonResponse({'success': False, 'error': 'Select at least one meal.'}, status=400)
-
-    pricing = MealPricing.get_active_pricing()
-    total_cost = adult_count * pricing['adult'] + child_count * pricing['child']
-
-    with transaction.atomic():
-        try:
-            family = Family.objects.select_for_update().get(id=family_id, is_active=True)
-        except Family.DoesNotExist:
-            return JsonResponse({'success': False, 'error': 'Family not found.'}, status=404)
-
-        if family.credit_units < total_cost:
-            return JsonResponse({'success': False, 'error': 'Insufficient credits.'}, status=400)
-
-        family.credit_units -= total_cost
-        family.save(update_fields=['credit_units'])
-
-        Transaction.objects.create(
-            family=family,
-            credit_delta=-total_cost,
-            reason='manual_kiosk_entry',
-            performed_by='kiosk_volunteer',
-            notes=f"{adult_count} adult(s), {child_count} child(ren)",
-        )
-
-    return JsonResponse({
-        'success': True,
-        'family_name': family.display_name,
-        'credits_deducted': total_cost,
-        'new_balance': family.credit_units,
-    })
-
-@require_POST
-def api_kiosk_topup(request):
-    try:
-        data = json.loads(request.body)
-        family_id = data.get('family_id')
-        amount = int(data.get('amount', 0))
-
-        if amount <= 0:
-            return JsonResponse({'success': False, 'error': 'Invalid amount.'})
-
-        with transaction.atomic():
-            # select_for_update() locks the row until the transaction completes
-            family = Family.objects.select_for_update().get(id=family_id)
-            
-            # 1. Update the balance
-            family.credit_units += amount
-            family.save()
-
-            # 2. Log the audit trail
-            Transaction.objects.create(
+    # If children's programme, write attendance
+    if branch.is_children_programme and nonce.child_ids:
+        child_ids = [x for x in nonce.child_ids if isinstance(x, int)]
+        if child_ids:
+            record = AttendanceRecord.objects.create(
+                branch=branch,
                 family=family,
-                credit_delta=amount,  # Positive number for top-ups
-                reason='credit_top_up',
-                performed_by='kiosk_volunteer',
-                timestamp=timezone.now()
+                session_date=timezone.localdate(),
+                transaction=txn,
             )
+            children = Child.objects.filter(id__in=child_ids, family=family)
+            for child in children:
+                AttendanceChild.objects.create(record=record, child=child)
+            response_data['children_checked_in'] = [c.full_name for c in children]
 
-            return JsonResponse({
-                'success': True,
-                'family_name': family.display_name,
-                'new_balance': family.credit_units
-            })
+    return JsonResponse(response_data)
 
-    except Family.DoesNotExist:
-        return JsonResponse({'success': False, 'error': 'Family not found.'})
-    except Exception as e:
-        return JsonResponse({'success': False, 'error': str(e)})
-# ─── Helpers ───────────────────────────────────────────────────────────────────
 
-def _generate_qr_svg(payload: str) -> str:
-    factory = qrcode.image.svg.SvgPathImage
-    img = qrcode.make(payload, image_factory=factory, box_size=10, border=2)
-    stream = io.BytesIO()
-    img.save(stream)
-    return stream.getvalue().decode('utf-8')
+# ─── API: Manual deduction ────────────────────────────────────────────────────
 
-@require_kiosk_session
 @require_POST
-def api_kiosk_add_family(request):
+def api_kiosk_deduct(request, branch_slug):
+    branch = get_branch_or_404(branch_slug)
+    if not request.session.get('kiosk_authenticated') or request.session.get('kiosk_branch_slug') != branch_slug:
+        return JsonResponse({'success': False, 'error': 'Not authorised.'}, status=403)
+
     try:
-        data = json.loads(request.body)
-        surname = data.get('surname', '').strip()
-        contact = data.get('primary_contact', '').strip()
-        pin = data.get('pin', '').strip()
+        data      = json.loads(request.body)
+        family_id = data['family_id']
+        family    = Family.objects.get(id=family_id, branch=branch)
+    except (json.JSONDecodeError, KeyError, Family.DoesNotExist):
+        return JsonResponse({'success': False, 'error': 'Invalid request.'})
 
-        if not surname or not contact or not pin:
-            return JsonResponse({'success': False, 'error': 'All fields are required.'})
-        
-        if len(pin) < 4:
-            return JsonResponse({'success': False, 'error': 'PIN must be at least 4 digits.'})
+    if branch.is_children_programme:
+        child_ids = [int(x) for x in data.get('child_ids', []) if str(x).isdigit()]
+        count     = len(child_ids)
+        if count == 0:
+            return JsonResponse({'success': False, 'error': 'No children selected.'})
+        total_cost = Decimal(count)
+    else:
+        products    = branch.products.filter(is_active=True)
+        total_cost  = Decimal(0)
+        for product in products:
+            qty = int(data.get(f'qty_{product.id}', 0))
+            total_cost += product.credit_cost * qty
 
-        # Format public display name (e.g., "O'Shea — Connan")
-        display_name = f"{surname} — {contact}"
+    if total_cost <= 0:
+        return JsonResponse({'success': False, 'error': 'Nothing to deduct.'})
 
-        with transaction.atomic():
-            family = Family.objects.create(
-                surname=surname,
-                primary_contact=contact,
-                display_name=display_name,
-                pin_hash=hash_pin(pin),
-                credit_units=0,
-                is_active=True
+    if family.credit_units < total_cost:
+        return JsonResponse({'success': False, 'error': 'Insufficient credits.'})
+
+    family.credit_units -= total_cost
+    family.save(update_fields=['credit_units'])
+
+    txn = Transaction.objects.create(
+        family=family,
+        credit_delta=-total_cost,
+        reason='manual_kiosk',
+        performed_by='kiosk_volunteer',
+        notes=data.get('notes', ''),
+    )
+
+    # Attendance for children's programmes
+    if branch.is_children_programme and child_ids:
+        record = AttendanceRecord.objects.create(
+            branch=branch, family=family,
+            session_date=timezone.localdate(),
+            transaction=txn,
+        )
+        children = Child.objects.filter(id__in=child_ids, family=family)
+        for child in children:
+            AttendanceChild.objects.create(record=record, child=child)
+
+    return JsonResponse({
+        'success':          True,
+        'family_name':      family.display_name,
+        'credits_deducted': float(total_cost),
+        'new_balance':      float(family.credit_units),
+    })
+
+
+# ─── API: Top-up ──────────────────────────────────────────────────────────────
+
+@require_POST
+def api_kiosk_topup(request, branch_slug):
+    branch = get_branch_or_404(branch_slug)
+    if not request.session.get('kiosk_authenticated') or request.session.get('kiosk_branch_slug') != branch_slug:
+        return JsonResponse({'success': False, 'error': 'Not authorised.'}, status=403)
+
+    try:
+        data      = json.loads(request.body)
+        family    = Family.objects.get(id=data['family_id'], branch=branch)
+        amount    = Decimal(str(data['amount']))
+        assert amount > 0
+    except Exception:
+        return JsonResponse({'success': False, 'error': 'Invalid request.'})
+
+    family.credit_units += amount
+    family.save(update_fields=['credit_units'])
+
+    Transaction.objects.create(
+        family=family,
+        credit_delta=amount,
+        reason='credit_top_up',
+        performed_by='kiosk_volunteer',
+        notes=data.get('notes', ''),
+    )
+
+    return JsonResponse({'success': True, 'new_balance': float(family.credit_units)})
+
+
+# ─── API: Add family ──────────────────────────────────────────────────────────
+
+@require_POST
+def api_kiosk_add_family(request, branch_slug):
+    branch = get_branch_or_404(branch_slug)
+    if not request.session.get('kiosk_authenticated') or request.session.get('kiosk_branch_slug') != branch_slug:
+        return JsonResponse({'success': False, 'error': 'Not authorised.'}, status=403)
+
+    try:
+        data    = json.loads(request.body)
+        surname = data['surname'].strip()
+        contact = data['primary_contact'].strip()
+        pin     = data['pin'].strip()
+        display = data.get('display_name', '').strip() or f"{surname} — {contact}"
+        assert surname and contact and len(pin) >= 4
+    except Exception:
+        return JsonResponse({'success': False, 'error': 'Please fill all fields (PIN must be ≥4 digits).'})
+
+    if Family.objects.filter(branch=branch, surname=surname, primary_contact=contact).exists():
+        return JsonResponse({'success': False, 'error': 'A family with that surname and contact already exists.'})
+
+    family = Family.objects.create(
+        branch=branch,
+        surname=surname,
+        primary_contact=contact,
+        display_name=display,
+        pin_hash=hash_pin(pin),
+        credit_units=0,
+    )
+    return JsonResponse({'success': True, 'family_id': family.id})
+
+
+# ─── API: Add / delete child ──────────────────────────────────────────────────
+
+@require_POST
+def api_kiosk_add_child(request, branch_slug):
+    branch = get_branch_or_404(branch_slug)
+    if not request.session.get('kiosk_authenticated') or request.session.get('kiosk_branch_slug') != branch_slug:
+        return JsonResponse({'success': False, 'error': 'Not authorised.'}, status=403)
+
+    try:
+        data      = json.loads(request.body)
+        family    = Family.objects.get(id=data['family_id'], branch=branch)
+        first     = data['first_name'].strip()
+        last      = data.get('last_name', '').strip()
+        dob_str   = data.get('date_of_birth', '')
+        assert first
+    except Exception:
+        return JsonResponse({'success': False, 'error': 'Invalid request.'})
+
+    dob = None
+    if dob_str:
+        try:
+            dob = date.fromisoformat(dob_str)
+        except ValueError:
+            pass
+
+    child = Child.objects.create(
+        family=family,
+        first_name=first,
+        last_name=last,
+        date_of_birth=dob,
+    )
+    return JsonResponse({'success': True, 'child_id': child.id, 'full_name': child.full_name})
+
+
+@require_POST
+def api_kiosk_delete_child(request, branch_slug):
+    branch = get_branch_or_404(branch_slug)
+    if not request.session.get('kiosk_authenticated') or request.session.get('kiosk_branch_slug') != branch_slug:
+        return JsonResponse({'success': False, 'error': 'Not authorised.'}, status=403)
+
+    try:
+        data  = json.loads(request.body)
+        child = Child.objects.get(id=data['child_id'], family__branch=branch)
+    except Exception:
+        return JsonResponse({'success': False, 'error': 'Child not found.'})
+
+    child.is_active = False
+    child.save(update_fields=['is_active'])
+    return JsonResponse({'success': True})
+
+
+# ─── Settings (staff only) ────────────────────────────────────────────────────
+
+@staff_member_required(login_url='/admin/login/')
+def settings_home(request):
+    branches = Branch.objects.prefetch_related('products').all()
+    return render(request, 'settings/home.html', {'branches': branches})
+
+
+@staff_member_required(login_url='/admin/login/')
+def settings_branch_add(request):
+    from .utils import hash_pin
+    if request.method == 'POST':
+        try:
+            branch = Branch.objects.create(
+                name=request.POST['name'],
+                slug=request.POST['slug'],
+                branch_type=request.POST['branch_type'],
+                theme=request.POST['theme'],
+                icon=request.POST.get('icon', '🎟️'),
+                description=request.POST.get('description', ''),
+                kiosk_pin_hash=hash_pin(request.POST['kiosk_pin']),
+                is_children_programme='is_children_programme' in request.POST,
+                order=int(request.POST.get('order', 0)),
             )
-
-            return JsonResponse({
-                'success': True,
-                'family_id': family.id,
-                'display_name': family.display_name
-            })
-
-    except Exception as e:
-        return JsonResponse({'success': False, 'error': str(e)})
+            messages.success(request, f'Branch "{branch.name}" created.')
+            return redirect('settings_products', branch_id=branch.id)
+        except Exception as e:
+            messages.error(request, f'Error: {e}')
+    return render(request, 'settings/branch_form.html', {'action': 'Add', 'branch': None})
 
 
-@require_kiosk_session
-def kiosk_home(request):
-    return render(request, 'meals/kiosk_home.html')
+@staff_member_required(login_url='/admin/login/')
+def settings_branch_edit(request, branch_id):
+    branch = get_object_or_404(Branch, id=branch_id)
+    if request.method == 'POST':
+        branch.name        = request.POST['name']
+        branch.slug        = request.POST['slug']
+        branch.branch_type = request.POST['branch_type']
+        branch.theme       = request.POST['theme']
+        branch.icon        = request.POST.get('icon', branch.icon)
+        branch.description = request.POST.get('description', '')
+        branch.is_active   = 'is_active' in request.POST
+        branch.is_children_programme = 'is_children_programme' in request.POST
+        branch.order       = int(request.POST.get('order', branch.order))
+        new_pin = request.POST.get('kiosk_pin', '').strip()
+        if new_pin:
+            branch.kiosk_pin_hash = hash_pin(new_pin)
+        branch.save()
+        messages.success(request, f'Branch "{branch.name}" updated.')
+        return redirect('settings_home')
+    return render(request, 'settings/branch_form.html', {'action': 'Edit', 'branch': branch})
+
+
+@staff_member_required(login_url='/admin/login/')
+def settings_branch_delete(request, branch_id):
+    branch = get_object_or_404(Branch, id=branch_id)
+    if request.method == 'POST':
+        branch.is_active = False
+        branch.save()
+        messages.success(request, f'Branch "{branch.name}" deactivated.')
+    return redirect('settings_home')
+
+
+@staff_member_required(login_url='/admin/login/')
+def settings_products(request, branch_id):
+    branch = get_object_or_404(Branch, id=branch_id)
+    if request.method == 'POST':
+        try:
+            Product.objects.create(
+                branch=branch,
+                name=request.POST['name'],
+                icon=request.POST.get('icon', '🎟️'),
+                credit_cost=Decimal(request.POST['credit_cost']),
+                topup_bundle=int(request.POST.get('topup_bundle', 10)),
+                topup_credits=int(request.POST.get('topup_credits', 10)),
+                order=int(request.POST.get('order', 0)),
+            )
+            messages.success(request, 'Product added.')
+        except Exception as e:
+            messages.error(request, f'Error: {e}')
+    products = branch.products.all()
+    return render(request, 'settings/products.html', {'branch': branch, 'products': products})
+
+
+@staff_member_required(login_url='/admin/login/')
+def settings_product_delete(request, product_id):
+    product = get_object_or_404(Product, id=product_id)
+    branch_id = product.branch_id
+    if request.method == 'POST':
+        product.is_active = False
+        product.save()
+        messages.success(request, f'Product "{product.name}" deactivated.')
+    return redirect('settings_products', branch_id=branch_id)

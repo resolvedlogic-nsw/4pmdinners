@@ -1,9 +1,9 @@
 {% extends "base.html" %}
-{% block title %}Scanner — Kiosk{% endblock %}
+{% block title %}Scanner — {{ branch.name }}{% endblock %}
 {% block body_class %}kiosk-mode{% endblock %}
 {% block header_nav %}
-  <a href="{% url 'meals:kiosk_manual' %}" class="nav-link">Manual</a>
-  <a href="{% url 'meals:kiosk_logout' %}" class="nav-link">Logout</a>
+  <a href="{% url 'branch_kiosk_manual' branch.slug %}" class="nav-link">Manual</a>
+  <a href="{% url 'branch_kiosk_logout' branch.slug %}" class="nav-link">Logout</a>
 {% endblock %}
 
 {% block content %}
@@ -12,16 +12,16 @@
   <p>Point the camera at a family's QR code.</p>
 </div>
 
-<div style="margin-bottom: 15px;">
-    <label for="cameraSelect" style="font-weight: bold; display: block; margin-bottom: 5px;">Select Camera:</label>
-    <select id="cameraSelect" class="form-control" style="padding: 10px; font-size: 16px; width: 100%; border-radius: 8px;"></select>
+<div style="margin-bottom:15px;">
+  <label for="cameraSelect" style="font-weight:bold; display:block; margin-bottom:5px;">Select Camera:</label>
+  <select id="cameraSelect" style="padding:10px; font-size:16px; width:100%; border-radius:8px; border:1.5px solid #ddd;"></select>
 </div>
 
 <div class="card animate-in delay-1" style="padding:0; overflow:hidden; position:relative; background:#111;">
   <video id="qr-video" style="width:100%; display:block; min-height:280px; object-fit:cover;" playsinline autoplay muted></video>
 
   <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;">
-    <div style="width:200px;height:200px;border:3px solid rgba(82,183,136,0.9);border-radius:12px;box-shadow:0 0 0 9999px rgba(0,0,0,0.35);">
+    <div style="position:relative;width:200px;height:200px;border:3px solid rgba(82,183,136,0.9);border-radius:12px;box-shadow:0 0 0 9999px rgba(0,0,0,0.35);">
       <div style="position:absolute;top:0;left:0;width:28px;height:28px;border-top:4px solid var(--green-light);border-left:4px solid var(--green-light);border-radius:4px 0 0 0;"></div>
       <div style="position:absolute;top:0;right:0;width:28px;height:28px;border-top:4px solid var(--green-light);border-right:4px solid var(--green-light);border-radius:0 4px 0 0;"></div>
       <div style="position:absolute;bottom:0;left:0;width:28px;height:28px;border-bottom:4px solid var(--green-light);border-left:4px solid var(--green-light);border-radius:0 0 0 4px;"></div>
@@ -35,7 +35,7 @@
 </div>
 
 <div class="animate-in delay-2 mt-16">
-  <a href="{% url 'meals:kiosk_manual' %}" class="btn btn-secondary">
+  <a href="{% url 'branch_kiosk_manual' branch.slug %}" class="btn btn-secondary">
     ✏️ Manual Entry (phone dead?)
   </a>
 </div>
@@ -44,7 +44,7 @@
   <div class="overlay-card">
     <div class="overlay-icon" id="result-icon"></div>
     <h2 id="result-title"></h2>
-    <p id="result-body" style="margin-bottom:20px;"></p>
+    <p id="result-body" style="margin-bottom:20px; white-space:pre-line;"></p>
     <button class="btn btn-secondary" onclick="dismissOverlay()" style="width:auto;min-width:120px;">OK</button>
   </div>
 </div>
@@ -53,58 +53,41 @@
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
 <script>
-const video = document.getElementById('qr-video');
-const statusEl = document.getElementById('scan-status');
+const video     = document.getElementById('qr-video');
+const statusEl  = document.getElementById('scan-status');
 const cameraSelect = document.getElementById('cameraSelect');
+const branchSlug = '{{ branch.slug }}';
+const CSRF      = '{{ csrf_token }}';
 
-// Create the canvas once globally
 const canvas = document.createElement('canvas');
-const ctx = canvas.getContext('2d', { willReadFrequently: true });
+const ctx    = canvas.getContext('2d', { willReadFrequently: true });
 
 let scanning = false;
 let currentStream = null;
 
-// 1. Get all cameras and populate the dropdown
 navigator.mediaDevices.enumerateDevices()
   .then(devices => {
-    const videoCameras = devices.filter(device => device.kind === 'videoinput');
-    
-    videoCameras.forEach(camera => {
-      const option = document.createElement('option');
-      option.value = camera.deviceId;
-      option.text = camera.label || `Camera ${cameraSelect.length + 1}`;
-      cameraSelect.appendChild(option);
+    const cams = devices.filter(d => d.kind === 'videoinput');
+    cams.forEach(cam => {
+      const opt = document.createElement('option');
+      opt.value = cam.deviceId;
+      opt.text  = cam.label || `Camera ${cameraSelect.length + 1}`;
+      cameraSelect.appendChild(opt);
     });
+    if (cams.length > 0) startCamera(cams[0].deviceId);
+    else { statusEl.textContent = 'No cameras found.'; statusEl.style.background = 'rgba(192,57,43,0.8)'; }
+  });
 
-    if (videoCameras.length > 0) {
-      startCamera(videoCameras[0].deviceId);
-    } else {
-      statusEl.textContent = 'No cameras found.';
-      statusEl.style.background = 'rgba(192,57,43,0.8)';
-    }
-  })
-  .catch(err => console.error("Error enumerating devices:", err));
+cameraSelect.addEventListener('change', e => startCamera(e.target.value));
 
-// 2. Handle dropdown changes
-cameraSelect.addEventListener('change', (event) => {
-  startCamera(event.target.value);
-});
-
-// 3. Start specific camera
 async function startCamera(deviceId) {
-  if (currentStream) {
-    currentStream.getTracks().forEach(track => track.stop());
-  }
-
+  if (currentStream) currentStream.getTracks().forEach(t => t.stop());
   try {
     const stream = await navigator.mediaDevices.getUserMedia({
       video: { deviceId: { exact: deviceId }, width: { ideal: 1280 }, height: { ideal: 720 } }
     });
-    
-    currentStream = stream;
+    currentStream  = stream;
     video.srcObject = stream;
-    
-    // Play the video, then start the loop
     video.play().then(() => {
       statusEl.textContent = 'Ready — hold a QR code in view';
       statusEl.style.background = 'rgba(0,0,0,0.5)';
@@ -114,59 +97,44 @@ async function startCamera(deviceId) {
   } catch(e) {
     statusEl.textContent = 'Camera unavailable. Check permissions.';
     statusEl.style.background = 'rgba(192,57,43,0.8)';
-    console.error("Camera error:", e);
   }
 }
 
-// 4. The jsQR Scanning Loop (Now resilient to 0x0 video frames)
 function scanLoop() {
-  if (!scanning) { 
-    return; // Completely pause the loop if scanning is disabled
-  }
-  
+  if (!scanning) return;
   if (video.readyState === video.HAVE_ENOUGH_DATA) {
-    // Dynamically match canvas size to the actual video feed
     if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
+      canvas.width = video.videoWidth; canvas.height = video.videoHeight;
     }
-
-    // Only attempt to read if we have valid dimensions
     if (canvas.width > 0 && canvas.height > 0) {
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      
-      // attemptBoth makes it a bit slower but much more reliable
       const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'attemptBoth' });
-      
       if (code) {
-        scanning = false; // Stop scanning immediately
+        scanning = false;
         statusEl.textContent = 'Code detected — processing…';
         redeemQR(code.data);
-        return; // Don't request another frame until the popup is dismissed
+        return;
       }
     }
   }
-  
-  // Keep looping if no code found
   requestAnimationFrame(scanLoop);
 }
 
-// 5. API Call to redeem the code
 async function redeemQR(payload) {
   try {
-    const res = await fetch('{% url "meals:api_redeem_qr" %}', {
+    const res  = await fetch(`/${branchSlug}/api/qr/redeem/`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
       body: JSON.stringify({ payload })
     });
     const data = await res.json();
     if (data.success) {
-      showOverlay(true,
-        '✅',
-        data.family_name,
-        `${data.credits_deducted} credit${data.credits_deducted !== 1 ? 's' : ''} deducted.\nBalance: ${data.new_balance} credits.\n${data.adult_count} adult(s), ${data.child_count} child(ren).`
-      );
+      let body = `${data.credits_deducted} credit${data.credits_deducted !== 1 ? 's' : ''} deducted.\nBalance: ${data.new_balance} credits.`;
+      if (data.children_checked_in && data.children_checked_in.length) {
+        body += `\n\nChecked in:\n${data.children_checked_in.join(', ')}`;
+      }
+      showOverlay(true, '✅', data.family_name, body);
     } else {
       showOverlay(false, '❌', 'Scan Failed', data.error || 'Unknown error.');
     }
@@ -175,14 +143,13 @@ async function redeemQR(payload) {
   }
 }
 
-// 6. UI Overlays
 function showOverlay(success, icon, title, body) {
-  document.getElementById('result-icon').textContent = icon;
+  document.getElementById('result-icon').textContent  = icon;
   document.getElementById('result-title').textContent = title;
   document.getElementById('result-title').style.color = success ? 'var(--success)' : 'var(--danger)';
-  document.getElementById('result-body').innerText = body;
+  document.getElementById('result-body').innerText    = body;
   document.getElementById('result-overlay').classList.add('show');
-  statusEl.textContent = success ? '✓ Redeemed' : '✕ Failed';
+  statusEl.textContent   = success ? '✓ Redeemed' : '✕ Failed';
   statusEl.style.background = success ? 'rgba(27,122,62,0.85)' : 'rgba(192,57,43,0.8)';
 }
 
@@ -191,7 +158,7 @@ function dismissOverlay() {
   statusEl.textContent = 'Ready — hold a QR code in view';
   statusEl.style.background = 'rgba(0,0,0,0.5)';
   scanning = true;
-  requestAnimationFrame(scanLoop); // Restart the scanning loop!
+  requestAnimationFrame(scanLoop);
 }
 </script>
 {% endblock %}
