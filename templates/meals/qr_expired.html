@@ -1,5 +1,6 @@
+{% comment %}qr_expired.html{% endcomment %}
 {% extends "base.html" %}
-{% block title %}Expired — Church Meals{% endblock %}
+{% block title %}Expired — {{ branch.name }}{% endblock %}
 {% block content %}
 <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;text-align:center;">
   <div class="animate-in">
@@ -8,7 +9,7 @@
     <p>This QR code has expired. Please generate a new one.</p>
   </div>
   <div class="animate-in delay-1 mt-24" style="width:100%;">
-    <a href="{% url 'meals:user_summary' %}" class="btn btn-primary">Generate New Code</a>
+    <a href="{% url 'branch_user_summary' branch.slug %}" class="btn btn-primary">Generate New Code</a>
   </div>
 </div>
 {% endblock %}

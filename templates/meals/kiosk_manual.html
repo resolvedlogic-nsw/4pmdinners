@@ -1,15 +1,15 @@
 {% extends "base.html" %}
-{% block title %}Manual Entry — Kiosk{% endblock %}
+{% block title %}Manual Entry — {{ branch.name }}{% endblock %}
 {% block body_class %}kiosk-mode{% endblock %}
 {% block header_nav %}
-  <a href="{% url 'meals:kiosk_scanner' %}" class="nav-link">← Scanner</a>
-  <a href="{% url 'meals:kiosk_logout' %}" class="nav-link">Logout</a>
+  <a href="{% url 'branch_kiosk_home' branch.slug %}" class="nav-link">← Home</a>
+  <a href="{% url 'branch_kiosk_logout' branch.slug %}" class="nav-link">Logout</a>
 {% endblock %}
 
 {% block content %}
 <div class="animate-in" style="margin-bottom:16px;">
   <h1>Manual Entry</h1>
-  <p>Search and select a family to deduct credits.</p>
+  <p>Search and select a family.</p>
 </div>
 
 <div class="card animate-in delay-1" style="padding:16px;">
@@ -18,7 +18,7 @@
       <span class="search-icon">🔍</span>
       <input type="text" id="search-input" placeholder="Type surname to filter…" autocomplete="off" autocorrect="off" spellcheck="false" autofocus>
     </div>
-    <button class="btn btn-primary" onclick="showAddFamily()" style="flex: 0 0 auto; width: auto; background: var(--green-deep); border: none; font-weight: bold;">
+    <button class="btn btn-primary" onclick="showAddFamily()" style="flex:0 0 auto; width:auto; min-width:80px;">
       + New
     </button>
   </div>
@@ -27,7 +27,10 @@
 <div class="card animate-in delay-2" style="padding:0; overflow-y:auto; max-height: calc(100vh - 260px);">
   <ul class="family-list" id="family-list">
     {% for family in families %}
-    <li class="family-item" data-surname="{{ family.surname|lower }}" data-name="{{ family.display_name|lower }}" onclick="window.location='{% url 'meals:kiosk_family_detail' family.id %}'">
+    <li class="family-item"
+        data-surname="{{ family.surname|lower }}"
+        data-name="{{ family.display_name|lower }}"
+        onclick="window.location='{% url 'branch_kiosk_family_detail' branch.slug family.id %}'">
       <span class="surname">{{ family.surname }}</span>
       <span class="full-name"> — {{ family.display_name }}</span>
       <span class="balance">{{ family.credit_units }} cr</span>
@@ -38,31 +41,34 @@
   </ul>
 </div>
 
+<!-- Add Family Overlay -->
 <div class="overlay" id="add-family-overlay">
-  <div class="overlay-card" style="text-align: left;">
-    <h2 style="margin-bottom: 4px;">New Family</h2>
-    <p class="text-muted" style="font-size: 0.9rem; margin-bottom: 20px;">Create a new account. They can change their PIN later.</p>
-    
+  <div class="overlay-card" style="text-align:left;">
+    <h2 style="margin-bottom:4px;">New Family</h2>
+    <p class="text-muted" style="font-size:0.9rem; margin-bottom:20px;">Create a new account. They can change their PIN later.</p>
+
     <div class="form-group">
       <label>Surname</label>
-      <input type="text" id="new-surname" placeholder="e.g. O'Shea" autocomplete="off" style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ccc; font-size: 1.1rem; box-sizing: border-box;">
+      <input type="text" id="new-surname" placeholder="e.g. O'Shea" autocomplete="off">
     </div>
-    
     <div class="form-group">
-      <label>Primary Contact (First Name)</label>
-      <input type="text" id="new-contact" placeholder="e.g. Connan" autocomplete="off" style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ccc; font-size: 1.1rem; box-sizing: border-box;">
+      <label>Primary Contact Name</label>
+      <input type="text" id="new-contact" placeholder="e.g. Connan" autocomplete="off">
     </div>
-
     <div class="form-group">
-      <label>Initial PIN (Birthday DDMM)</label>
-      <input type="tel" id="new-pin" maxlength="4" placeholder="e.g. 1508" autocomplete="off" style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ccc; font-size: 1.2rem; text-align: center; letter-spacing: 0.2em; box-sizing: border-box;">
+      <label>Display Name (optional)</label>
+      <input type="text" id="new-display" placeholder="e.g. O'Shea — Connan & Belinda" autocomplete="off">
+    </div>
+    <div class="form-group">
+      <label>Initial PIN (4+ digits)</label>
+      <input type="tel" id="new-pin" maxlength="6" placeholder="e.g. 1508" class="pin-input" autocomplete="off">
     </div>
 
-    <div id="add-error" class="alert alert-danger" style="display:none; padding: 10px; margin-bottom: 15px;"></div>
+    <div id="add-error" class="alert alert-danger" style="display:none;"></div>
 
-    <div style="display:flex;gap:10px; margin-top: 24px;">
+    <div style="display:flex; gap:10px; margin-top:24px;">
       <button class="btn btn-secondary" onclick="hideAddFamily()" style="flex:1;">Cancel</button>
-      <button class="btn btn-primary" onclick="submitNewFamily()" id="add-submit-btn" style="flex:1; background: var(--green-deep); border: none;">Create</button>
+      <button class="btn btn-primary" onclick="submitNewFamily()" id="add-submit-btn" style="flex:1;">Create</button>
     </div>
   </div>
 </div>
@@ -74,62 +80,54 @@ const items = document.querySelectorAll('#family-list .family-item');
 document.getElementById('search-input').addEventListener('input', function() {
   const q = this.value.toLowerCase().trim();
   items.forEach(li => {
-    const match = !q || li.dataset.surname.includes(q) || li.dataset.name.includes(q);
-    li.style.display = match ? '' : 'none';
+    li.style.display = (!q || li.dataset.surname.includes(q) || li.dataset.name.includes(q)) ? '' : 'none';
   });
 });
 
 function showAddFamily() {
-  document.getElementById('new-surname').value = '';
-  document.getElementById('new-contact').value = '';
-  document.getElementById('new-pin').value = '';
+  ['new-surname','new-contact','new-display','new-pin'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('add-error').style.display = 'none';
   document.getElementById('add-family-overlay').classList.add('show');
 }
-
 function hideAddFamily() {
   document.getElementById('add-family-overlay').classList.remove('show');
 }
 
 async function submitNewFamily() {
-  const surname = document.getElementById('new-surname').value.trim();
-  const contact = document.getElementById('new-contact').value.trim();
-  const pin = document.getElementById('new-pin').value.trim();
-  const errorEl = document.getElementById('add-error');
-  const btn = document.getElementById('add-submit-btn');
+  const surname  = document.getElementById('new-surname').value.trim();
+  const contact  = document.getElementById('new-contact').value.trim();
+  const display  = document.getElementById('new-display').value.trim();
+  const pin      = document.getElementById('new-pin').value.trim();
+  const errorEl  = document.getElementById('add-error');
+  const btn      = document.getElementById('add-submit-btn');
 
   if (!surname || !contact || !pin) {
-    errorEl.textContent = 'Please fill out all fields.';
+    errorEl.textContent = 'Please fill Surname, Contact, and PIN.';
     errorEl.style.display = 'block';
     return;
   }
 
-  btn.disabled = true;
-  btn.textContent = 'Creating...';
+  btn.disabled = true; btn.textContent = 'Creating…';
   errorEl.style.display = 'none';
 
   try {
-    const res = await fetch('{% url "meals:api_kiosk_add_family" %}', {
+    const res = await fetch('{% url "branch_api_kiosk_add_family" branch.slug %}', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
-      body: JSON.stringify({ surname, primary_contact: contact, pin })
+      headers: {'Content-Type':'application/json','X-CSRFToken':'{{ csrf_token }}'},
+      body: JSON.stringify({ surname, primary_contact: contact, display_name: display, pin })
     });
-    
     const data = await res.json();
     if (data.success) {
-      // Redirect straight to the new family's page so they can do an initial top-up
-      window.location.href = `/kiosk/family/${data.family_id}/`;
+      window.location.href = '{% url "branch_kiosk_family_detail" branch.slug 0 %}'.replace('/0/', `/${data.family_id}/`);
     } else {
       errorEl.textContent = data.error || 'Failed to create family.';
       errorEl.style.display = 'block';
-      btn.disabled = false;
-      btn.textContent = 'Create';
+      btn.disabled = false; btn.textContent = 'Create';
     }
   } catch(e) {
     errorEl.textContent = 'Network error. Please try again.';
     errorEl.style.display = 'block';
-    btn.disabled = false;
-    btn.textContent = 'Create';
+    btn.disabled = false; btn.textContent = 'Create';
   }
 }
 </script>

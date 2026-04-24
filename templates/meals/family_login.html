@@ -1,12 +1,12 @@
 {% extends "base.html" %}
-{% block title %}Family Login — Church Meals{% endblock %}
+{% block title %}Login — {{ branch.name }}{% endblock %}
 {% block content %}
 <div class="animate-in">
   <h1>Find your family</h1>
   <p>Type your surname to search, then enter your PIN.</p>
 </div>
 
-<form method="post" action="{% url 'meals:family_login' %}" id="login-form">
+<form method="post" action="{% url 'branch_family_login' branch.slug %}" id="login-form">
   {% csrf_token %}
   <input type="hidden" name="family_id" id="family-id-input" value="{{ selected_family_id }}">
 
@@ -14,7 +14,6 @@
     <div class="alert alert-danger animate-in">✕ {{ error }}</div>
   {% endif %}
 
-  <!-- Step 1: Family search -->
   <div class="card animate-in delay-1" id="step-family">
     <div class="form-group mb-0">
       <label for="search-input">Search surname</label>
@@ -23,20 +22,17 @@
         <input type="text" id="search-input" placeholder="e.g. O'Shea" autocomplete="off" autocorrect="off" spellcheck="false">
       </div>
     </div>
-
-    <div id="family-list-wrap" style="margin-top:12px; max-height: 300px; overflow-y: auto; border: 1.5px solid #eee; border-radius: var(--radius-sm); display:none;">
+    <div id="family-list-wrap" style="margin-top:12px; max-height:300px; overflow-y:auto; border:1.5px solid #eee; border-radius:var(--radius-sm); display:none;">
       <ul class="family-list" id="family-list"></ul>
     </div>
-
     <div id="selected-display" style="display:none; margin-top:12px;">
       <div class="alert alert-info mb-0" style="justify-content:space-between; align-items:center;">
         <span>✓ <strong id="selected-name">{{ selected_family_name }}</strong></span>
-        <button type="button" onclick="clearSelection()" style="background:none;border:none;cursor:pointer;color:var(--green-deep); font-size:1.1rem;">✕</button>
+        <button type="button" onclick="clearSelection()" style="background:none;border:none;cursor:pointer;color:var(--green-deep);font-size:1.1rem;">✕</button>
       </div>
     </div>
   </div>
 
-  <!-- Step 2: PIN entry -->
   <div class="card animate-in delay-2" id="step-pin" style="{% if not selected_family_id %}display:none{% endif %}">
     <div class="form-group mb-0">
       <label for="pin-input">Enter PIN</label>
@@ -53,7 +49,7 @@
 </form>
 
 <div class="text-center mt-16 animate-in delay-4">
-  <a href="{% url 'meals:index' %}" class="text-muted" style="text-decoration:none; font-size:0.875rem;">← Back</a>
+  <a href="{% url 'branch_index' branch.slug %}" class="text-muted" style="text-decoration:none; font-size:0.875rem;">← Back</a>
 </div>
 {% endblock %}
 
@@ -64,7 +60,7 @@ let selectedId = '{{ selected_family_id|default:"" }}';
 
 async function loadFamilies() {
   try {
-    const res = await fetch('{% url "meals:families_json" %}');
+    const res = await fetch('{% url "branch_families_json" branch.slug %}');
     const data = await res.json();
     families = data.families;
     if (selectedId) showSelected(selectedId);
@@ -100,7 +96,6 @@ document.getElementById('search-input').addEventListener('input', function() {
   const matches = families.filter(f =>
     f.surname.toLowerCase().includes(q) || f.display_name.toLowerCase().includes(q)
   ).slice(0, 20);
-
   const ul = document.getElementById('family-list');
   ul.innerHTML = matches.map(f => `
     <li class="family-item" onclick="showSelected(${f.id})">
@@ -108,7 +103,6 @@ document.getElementById('search-input').addEventListener('input', function() {
       <span class="full-name"> — ${f.display_name}</span>
     </li>
   `).join('') || '<li style="padding:12px 16px; color:var(--ink-muted); font-size:0.875rem;">No families found</li>';
-
   document.getElementById('family-list-wrap').style.display = '';
 });
 

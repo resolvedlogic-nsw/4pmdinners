@@ -1,89 +1,103 @@
 {% extends "base.html" %}
-{% block title %}{{ family.display_name }} — Kiosk{% endblock %}
+{% block title %}{{ family.display_name }} — {{ branch.name }} Kiosk{% endblock %}
 {% block body_class %}kiosk-mode{% endblock %}
 {% block header_nav %}
-  <a href="{% url 'meals:kiosk_manual' %}" class="nav-link">← Back</a>
-  <a href="{% url 'meals:kiosk_logout' %}" class="nav-link">Logout</a>
+  <a href="{% url 'branch_kiosk_manual' branch.slug %}" class="nav-link">← Back</a>
+  <a href="{% url 'branch_kiosk_logout' branch.slug %}" class="nav-link">Logout</a>
 {% endblock %}
 
 {% block content %}
 <div class="animate-in">
-  <p class="text-muted" style="font-size:0.85rem; text-transform:uppercase; letter-spacing:.06em; font-weight:600; margin-bottom:4px;">Manual deduction</p>
+  <p class="text-muted" style="font-size:0.85rem; text-transform:uppercase; letter-spacing:.06em; font-weight:600; margin-bottom:4px;">Manual entry</p>
   <h1 style="margin-bottom:12px;">{{ family.display_name }}</h1>
   <div class="credit-badge {% if family.credit_units == 0 %}low{% endif %}" style="margin-bottom:20px;">
-    <span class="credit-num">{{ family.credit_units }}</span>
+    <span class="credit-num" id="live-balance">{{ family.credit_units }}</span>
     <span>credits</span>
   </div>
 </div>
 
-<div class="card animate-in delay-1" style="background-color: var(--danger-bg); border-left: 4px solid var(--danger);">
-  <h3 style="margin-bottom:16px;">Select meals to deduct</h3>
+<!-- ── Deduct section ─────────────────────────────────────────────────────── -->
+<div class="card animate-in delay-1" style="background:var(--danger-bg); border-left:4px solid var(--danger);">
+  <h3 style="margin-bottom:16px;">
+    {% if branch.is_children_programme %}Select attending children{% else %}Select items to deduct{% endif %}
+  </h3>
 
-  <div class="meal-row">
-    <div>
-      <div class="meal-label">🧑 Adult</div>
-      <div class="meal-cost">{{ adult_unit_cost }} credit{{ adult_unit_cost|pluralize }} each</div>
+  {% if branch.is_children_programme %}
+    {% if children %}
+      <ul class="child-check-list" id="child-list">
+        {% for child in children %}
+        <li class="child-check-item" onclick="toggleChild({{ child.id }})">
+          <input type="checkbox" id="kchild-{{ child.id }}" onclick="event.stopPropagation();" onchange="updateChildSummary()">
+          <label for="kchild-{{ child.id }}">{{ child.full_name }}</label>
+        </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <div class="alert alert-warning mb-0">No children registered. <a href="{% url 'branch_kiosk_manage_children' branch.slug family.id %}">Add children →</a></div>
+    {% endif %}
+    <div id="child-deduct-summary" style="display:none; margin-top:14px; padding:12px; background:#fff; border-radius:var(--radius-sm);">
+      <div style="display:flex;justify-content:space-between;"><span class="text-muted">Attending</span><strong id="child-count-kiosk">0</strong></div>
+      <div style="display:flex;justify-content:space-between;margin-top:4px;"><span class="text-muted">Credits used</span><strong id="child-cost-kiosk">0</strong></div>
+      <div style="display:flex;justify-content:space-between;margin-top:4px;"><span class="text-muted">Balance after</span><strong id="child-after-kiosk">—</strong></div>
     </div>
-    <div class="meal-counter">
-      <button type="button" class="counter-btn" id="adult-dec" onclick="adjust('adult',-1)" disabled>−</button>
-      <span class="counter-val" id="adult-val">0</span>
-      <button type="button" class="counter-btn" id="adult-inc" onclick="adjust('adult',1)" {% if max_adults == 0 %}disabled{% endif %}>+</button>
+
+  {% else %}
+    {% for product in products %}
+    <div class="meal-row">
+      <div>
+        <div class="meal-label">{{ product.icon }} {{ product.name }}</div>
+        <div class="meal-cost">{{ product.credit_cost }} credit{% if product.credit_cost != 1 %}s{% endif %} each</div>
+      </div>
+      <div class="meal-counter">
+        <button type="button" class="counter-btn" id="kdec-{{ product.id }}" onclick="kAdjust({{ product.id }},-1)" disabled>−</button>
+        <span class="counter-val" id="kval-{{ product.id }}">0</span>
+        <button type="button" class="counter-btn" id="kinc-{{ product.id }}" onclick="kAdjust({{ product.id }},1)">+</button>
+      </div>
     </div>
-  </div>
+    {% endfor %}
 
-  <div class="meal-row">
-    <div>
-      <div class="meal-label">👧 Child</div>
-      <div class="meal-cost">{{ child_unit_cost }} credit{{ child_unit_cost|pluralize }} each</div>
+    <div id="deduct-summary" style="display:none; margin-top:16px; padding:12px; background:#fff; border-radius:var(--radius-sm);">
+      <div style="display:flex;justify-content:space-between;"><span class="text-muted">Total cost</span><strong id="kiosk-total">0 credits</strong></div>
+      <div style="display:flex;justify-content:space-between;margin-top:4px;"><span class="text-muted">Balance after</span><strong id="kiosk-after">—</strong></div>
     </div>
-    <div class="meal-counter">
-      <button type="button" class="counter-btn" id="child-dec" onclick="adjust('child',-1)" disabled>−</button>
-      <span class="counter-val" id="child-val">0</span>
-      <button type="button" class="counter-btn" id="child-inc" onclick="adjust('child',1)" {% if max_children == 0 %}disabled{% endif %}>+</button>
-    </div>
-  </div>
-</div>
+  {% endif %}
 
-<div class="card animate-in delay-2" id="cost-summary" style="display:none;">
-  <div style="display:flex;justify-content:space-between;align-items:center;">
-    <span class="text-muted">Total cost</span>
-    <strong id="total-display" style="font-family:var(--font-display);font-size:1.2rem;color:var(--green-deep);"></strong>
-  </div>
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
-    <span class="text-muted">Balance after</span>
-    <strong id="remaining-display" style="font-size:1rem;color:var(--ink-muted);"></strong>
-  </div>
-</div>
+  <div class="alert alert-warning" id="kiosk-insufficient" style="display:none; margin-top:12px;">⚠ Insufficient credits.</div>
 
-<div class="alert alert-warning animate-in" id="insufficient-warning" style="display:none;">
-  ⚠ Insufficient credits for this selection.
-</div>
-
-<div class="animate-in delay-3">
-  <button class="btn btn-primary" id="deduct-btn" disabled onclick="confirmDeduct()">
+  <button class="btn btn-danger" id="deduct-btn" style="margin-top:16px;" disabled onclick="confirmDeduct()">
     ✓ Confirm Deduction
   </button>
 </div>
 
-<div class="card animate-in delay-2.5" style="margin-top:24px; background-color: var(--success-bg); border-left: 4px solid var(--success);">
+<!-- ── Top-up section ─────────────────────────────────────────────────────── -->
+<div class="card animate-in delay-2" style="background:var(--success-bg); border-left:4px solid var(--success);">
   <h3 style="margin-bottom:12px;">Top Up Credits</h3>
-  <p class="text-muted" style="font-size:0.9rem; margin-bottom:12px;">Add newly purchased credits to this family's balance.</p>
-  
-<div style="display: flex; gap: 12px; height: 56px; margin-bottom: 16px; align-items: stretch;">
-    <input type="number" id="topup-amount" min="1" max="100" placeholder="0" 
-           style="flex: 1 1 auto; width: 100%; margin: 0; padding: 0 16px; font-size: 1.5rem; font-weight: bold; text-align: center; border-radius: 8px; border: 2px solid #ccc; box-sizing: border-box;">
-    <button class="btn btn-primary" onclick="confirmTopUp()" 
-            style="flex: 0 0 auto; width: auto; min-width: 120px; white-space: nowrap; margin: 0; background: var(--green-deep); border: none; font-size: 1.2rem; font-weight: bold; border-radius: 8px;">
+  <p class="text-muted" style="font-size:0.9rem; margin-bottom:12px;">Add newly purchased credits to this account.</p>
+
+  <div style="display:flex; gap:12px; margin-bottom:12px;">
+    <input type="number" id="topup-amount" min="1" placeholder="0"
+           style="flex:1; min-height:52px; font-size:1.4rem; font-weight:700; text-align:center; border-radius:8px; border:2px solid #ccc; background:#fff; padding:0 12px;">
+    <button class="btn btn-primary" onclick="confirmTopUp()" style="flex:0 0 auto; width:auto; min-width:100px; background:var(--green-deep);">
       + Add
     </button>
   </div>
 
-  <div id="topup-hints" style="display: flex; flex-wrap: wrap; gap: 8px;">
-    </div>
+  <div id="topup-hints" style="display:flex; flex-wrap:wrap; gap:8px;"></div>
 </div>
 
+<!-- ── Children management (children's programmes only) ──────────────────── -->
+{% if branch.is_children_programme %}
+<div class="card animate-in delay-3" style="margin-top:4px;">
+  <h3 style="margin-bottom:12px;">Manage Children</h3>
+  <a href="{% url 'branch_kiosk_manage_children' branch.slug family.id %}" class="btn btn-ghost btn-sm" style="width:auto;">
+    👶 Add / Edit Children
+  </a>
+</div>
+{% endif %}
+
+<!-- ── Recent transactions ─────────────────────────────────────────────────── -->
 {% if recent_transactions %}
-<div class="card animate-in delay-4" style="margin-top:24px;">
+<div class="card animate-in delay-3" style="margin-top:8px;">
   <h3 style="margin-bottom:12px;">Recent transactions</h3>
   {% for txn in recent_transactions %}
   <div class="txn-item">
@@ -100,207 +114,184 @@
 </div>
 {% endif %}
 
-<!-- Confirm overlay -->
+<!-- ── Confirm overlay ────────────────────────────────────────────────────── -->
 <div class="overlay" id="confirm-overlay">
   <div class="overlay-card">
     <div class="overlay-icon">⚠️</div>
-    <h2 id="confirm-title">Confirm deduction?</h2>
+    <h2 id="confirm-title">Confirm?</h2>
     <p id="confirm-body" style="margin-bottom:20px;"></p>
     <div style="display:flex;gap:10px;">
       <button class="btn btn-secondary" onclick="dismissConfirm()" style="flex:1;">Cancel</button>
-      <button class="btn btn-primary" onclick="doDeduct()" style="flex:1;" id="confirm-ok">Confirm</button>
+      <button class="btn btn-primary" id="confirm-ok" style="flex:1;">Confirm</button>
     </div>
   </div>
 </div>
 
-<!-- Result overlay -->
+<!-- ── Result overlay ─────────────────────────────────────────────────────── -->
 <div class="overlay" id="result-overlay">
   <div class="overlay-card">
     <div class="overlay-icon" id="result-icon"></div>
     <h2 id="result-title"></h2>
     <p id="result-body" style="margin-bottom:20px;"></p>
-    <a href="{% url 'meals:kiosk_manual' %}" class="btn btn-secondary" style="display:inline-flex;width:auto;min-width:140px;">Done</a>
+    <button class="btn btn-secondary" onclick="location.reload()" style="width:auto;min-width:140px;">Done</button>
   </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-const adultCost   = {{ adult_unit_cost }};
-const childCost   = {{ child_unit_cost }};
-const balance     = {{ family.credit_units }};
-const maxAdults   = {{ max_adults }};
-const maxChildren = {{ max_children }};
 const familyId    = {{ family.id }};
-let adults = 0, children = 0;
+const balance     = {{ family.credit_units }};
+const branchSlug  = '{{ branch.slug }}';
+const isChildren  = {{ branch.is_children_programme|yesno:"true,false" }};
+const CSRF        = '{{ csrf_token }}';
 
-function adjust(type, delta) {
-  if (type === 'adult')  adults   = Math.max(0, Math.min(adults   + delta, maxAdults));
-  else                   children = Math.max(0, Math.min(children + delta, maxChildren));
-  render();
+// ── Top-up hints ────────────────────────────────────────────────────────────
+(function buildHints() {
+  const products = [{% for p in products %}{ name:'{{ p.name }}', topupCr:{{ p.topup_credits }}, bundle:{{ p.topup_bundle }} }{% if not forloop.last %},{% endif %}{% endfor %}];
+  const seen = new Set();
+  const container = document.getElementById('topup-hints');
+  products.forEach(p => {
+    const key = p.topupCr;
+    if (!seen.has(key)) {
+      seen.add(key);
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.innerHTML = `💡 <b>${p.topupCr} cr</b> = ${p.bundle}× ${p.name}`;
+      btn.style.cssText = 'background:#fff;border:1px solid #ccc;border-radius:16px;padding:6px 12px;font-size:0.85rem;cursor:pointer;';
+      btn.onclick = () => document.getElementById('topup-amount').value = p.topupCr;
+      container.appendChild(btn);
+    }
+  });
+})();
+
+// ── Children's programme ────────────────────────────────────────────────────
+function toggleChild(id) {
+  const cb = document.getElementById('kchild-' + id);
+  cb.checked = !cb.checked;
+  updateChildSummary();
+}
+function updateChildSummary() {
+  const checked = [...document.querySelectorAll('[id^="kchild-"]:checked')];
+  const count   = checked.length;
+  const cost    = count;
+  const after   = balance - cost;
+  document.getElementById('child-deduct-summary').style.display = count > 0 ? '' : 'none';
+  document.getElementById('child-count-kiosk').textContent = count + (count===1?' child':' children');
+  document.getElementById('child-cost-kiosk').textContent  = cost + ' credit' + (cost!==1?'s':'');
+  document.getElementById('child-after-kiosk').textContent = after + ' credits';
+  document.getElementById('kiosk-insufficient').style.display = (count>0 && after<0) ? '' : 'none';
+  document.getElementById('deduct-btn').disabled = count===0 || after<0;
 }
 
-function render() {
-  document.getElementById('adult-val').textContent   = adults;
-  document.getElementById('child-val').textContent   = children;
-  document.getElementById('adult-dec').disabled = adults === 0;
-  document.getElementById('adult-inc').disabled = adults >= maxAdults;
-  document.getElementById('child-dec').disabled = children === 0;
-  document.getElementById('child-inc').disabled = children >= maxChildren;
+// ── Counter-based ────────────────────────────────────────────────────────────
+const kProducts = [{% for p in products %}{ id:{{ p.id }}, cost:{{ p.credit_cost }} }{% if not forloop.last %},{% endif %}{% endfor %}];
+const kQtys = {};
+kProducts.forEach(p => kQtys[p.id] = 0);
 
-  const total = adults * adultCost + children * childCost;
-  const remaining = balance - total;
-  const hasSelection = (adults + children) > 0;
-  const canAfford = remaining >= 0;
-
-  document.getElementById('cost-summary').style.display = hasSelection ? '' : 'none';
-  document.getElementById('total-display').textContent = total + ' credit' + (total !== 1 ? 's' : '');
-  document.getElementById('remaining-display').textContent = remaining + ' credits';
-  document.getElementById('insufficient-warning').style.display = (hasSelection && !canAfford) ? '' : 'none';
-  document.getElementById('deduct-btn').disabled = !hasSelection || !canAfford;
+function kAdjust(productId, delta) {
+  kQtys[productId] = Math.max(0, kQtys[productId] + delta);
+  document.getElementById('kval-' + productId).textContent = kQtys[productId];
+  document.getElementById('kdec-' + productId).disabled = kQtys[productId] === 0;
+  kRender();
+}
+function kRender() {
+  let total = 0;
+  kProducts.forEach(p => total += kQtys[p.id] * p.cost);
+  const after = balance - total;
+  kProducts.forEach(p => {
+    const used = total - kQtys[p.id] * p.cost;
+    document.getElementById('kinc-' + p.id).disabled = kQtys[p.id] >= (p.cost>0 ? Math.floor((balance-used)/p.cost) : 99);
+  });
+  document.getElementById('deduct-summary').style.display = total > 0 ? '' : 'none';
+  document.getElementById('kiosk-total').textContent = total + ' credit' + (total!==1?'s':'');
+  document.getElementById('kiosk-after').textContent = after + ' credits';
+  document.getElementById('kiosk-insufficient').style.display = (total>0 && after<0) ? '' : 'none';
+  document.getElementById('deduct-btn').disabled = total===0 || after<0;
 }
 
+// ── Confirm / Deduct ─────────────────────────────────────────────────────────
 function confirmDeduct() {
-  const total = adults * adultCost + children * childCost;
-  
-  // 1. Set the Title and Body for Deduction
+  let body, payload;
+  if (isChildren) {
+    const checked = [...document.querySelectorAll('[id^="kchild-"]:checked')];
+    const ids     = checked.map(cb => parseInt(cb.id.replace('kchild-','')));
+    body    = `Check in ${ids.length} child${ids.length!==1?'ren':''} for {{ family.display_name }}?`;
+    payload = { family_id: familyId, child_ids: ids };
+  } else {
+    let total = 0;
+    kProducts.forEach(p => total += kQtys[p.id] * p.cost);
+    body    = `Deduct ${total} credit${total!==1?'s':''} from {{ family.display_name }}?`;
+    payload = { family_id: familyId };
+    kProducts.forEach(p => payload[`qty_${p.id}`] = kQtys[p.id]);
+  }
   document.getElementById('confirm-title').textContent = 'Confirm deduction?';
-  document.getElementById('confirm-body').textContent =
-    `${adults} adult(s) + ${children} child(ren) = ${total} credits from {{ family.display_name }}`;
-    
-  // 2. Safely point the Confirm button to the Deduct function
-  const confirmBtn = document.getElementById('confirm-ok');
-  confirmBtn.onclick = doDeduct;
-
-  // 3. Show the overlay
+  document.getElementById('confirm-body').textContent  = body;
+  document.getElementById('confirm-ok').onclick = () => doDeduct(payload);
   document.getElementById('confirm-overlay').classList.add('show');
 }
 
-function dismissConfirm() {
-  document.getElementById('confirm-overlay').classList.remove('show');
-}
+function dismissConfirm() { document.getElementById('confirm-overlay').classList.remove('show'); }
 
-async function doDeduct() {
+async function doDeduct(payload) {
   document.getElementById('confirm-ok').disabled = true;
   document.getElementById('confirm-ok').textContent = 'Processing…';
   try {
-    const res = await fetch('{% url "meals:api_kiosk_deduct" %}', {
+    const res  = await fetch(`/${branchSlug}/api/kiosk/deduct/`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
-      body: JSON.stringify({ family_id: familyId, adult_count: adults, child_count: children })
+      headers: {'Content-Type':'application/json','X-CSRFToken':CSRF},
+      body: JSON.stringify(payload)
     });
     const data = await res.json();
     dismissConfirm();
-    if (data.success) {
-      document.getElementById('result-icon').textContent = '✅';
-      document.getElementById('result-title').textContent = 'Done!';
-      document.getElementById('result-title').style.color = 'var(--success)';
-      document.getElementById('result-body').textContent =
-        `${data.credits_deducted} credits deducted from ${data.family_name}. New balance: ${data.new_balance}.`;
-    } else {
-      document.getElementById('result-icon').textContent = '❌';
-      document.getElementById('result-title').textContent = 'Failed';
-      document.getElementById('result-title').style.color = 'var(--danger)';
-      document.getElementById('result-body').textContent = data.error || 'Something went wrong.';
-    }
-    document.getElementById('result-overlay').classList.add('show');
-  } catch(e) {
-    dismissConfirm();
-    alert('Network error. Please try again.');
-  }
+    showResult(data.success,
+      data.success ? '✅' : '❌',
+      data.success ? 'Done!' : 'Failed',
+      data.success ? `${data.credits_deducted} credits deducted. New balance: ${data.new_balance}.` : (data.error || 'Something went wrong.')
+    );
+  } catch(e) { dismissConfirm(); alert('Network error.'); }
   document.getElementById('confirm-ok').disabled = false;
   document.getElementById('confirm-ok').textContent = 'Confirm';
 }
 
-render();
-
-function renderTopUpHints() {
-  const tenAdults = adultCost * 10;
-  const tenKids = childCost * 10;
-  const combo = tenAdults + tenKids;
-
-  document.getElementById('topup-hints').innerHTML = `
-    <button type="button" onclick="fillTopUp(${tenAdults})" style="background:#f1f5f9; border:1px solid #cbd5e1; border-radius:16px; padding:6px 12px; font-size:0.85rem; color:#334155; cursor:pointer;">
-      💡 <b>${tenAdults} cr</b> = 10 Adults
-    </button>
-    <button type="button" onclick="fillTopUp(${tenKids})" style="background:#f1f5f9; border:1px solid #cbd5e1; border-radius:16px; padding:6px 12px; font-size:0.85rem; color:#334155; cursor:pointer;">
-      💡 <b>${tenKids} cr</b> = 10 Kids
-    </button>
-    <button type="button" onclick="fillTopUp(${combo})" style="background:#f1f5f9; border:1px solid #cbd5e1; border-radius:16px; padding:6px 12px; font-size:0.85rem; color:#334155; cursor:pointer;">
-      💡 <b>${combo} cr</b> = 10 of each
-    </button>
-  `;
-}
-
-function fillTopUp(amount) {
-  document.getElementById('topup-amount').value = amount;
-}
-
-// Ensure you call the render function at the very bottom of your script, 
-// right next to where you call render();
-renderTopUpHints();
-
+// ── Top-up ────────────────────────────────────────────────────────────────────
 function confirmTopUp() {
-  const amountInput = document.getElementById('topup-amount').value;
-  const amount = parseInt(amountInput, 10);
-  
-  if (isNaN(amount) || amount <= 0) {
-    alert("Please enter a valid number of credits to add.");
-    return;
-  }
-
-  // 1. Set the Title and Body for Top Up
-  document.getElementById('confirm-title').textContent = 'Confirm Top Up?';
-  document.getElementById('confirm-body').textContent = 
-    `Add ${amount} new credits to {{ family.display_name }}'s balance?`;
-  
-  // 2. Safely point the Confirm button to the Top Up function
-  const confirmBtn = document.getElementById('confirm-ok');
-  confirmBtn.onclick = () => doTopUp(amount);
-  
-  // 3. Show the overlay
+  const amount = parseFloat(document.getElementById('topup-amount').value);
+  if (!amount || amount <= 0) { alert('Enter a valid credit amount.'); return; }
+  document.getElementById('confirm-title').textContent = 'Confirm top up?';
+  document.getElementById('confirm-body').textContent  = `Add ${amount} credits to {{ family.display_name }}?`;
+  document.getElementById('confirm-ok').onclick = () => doTopUp(amount);
   document.getElementById('confirm-overlay').classList.add('show');
 }
 
 async function doTopUp(amount) {
   document.getElementById('confirm-ok').disabled = true;
   document.getElementById('confirm-ok').textContent = 'Processing…';
-  
   try {
-    const res = await fetch('{% url "meals:api_kiosk_topup" %}', {
+    const res  = await fetch(`/${branchSlug}/api/kiosk/topup/`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
-      body: JSON.stringify({ family_id: familyId, amount: amount })
+      headers: {'Content-Type':'application/json','X-CSRFToken':CSRF},
+      body: JSON.stringify({ family_id: familyId, amount })
     });
-    
     const data = await res.json();
     dismissConfirm();
-    
-    if (data.success) {
-      document.getElementById('result-icon').textContent = '✅';
-      document.getElementById('result-title').textContent = 'Top Up Complete!';
-      document.getElementById('result-title').style.color = 'var(--success)';
-      document.getElementById('result-body').textContent = 
-        `${amount} credits added. New balance is ${data.new_balance} credits.`;
-      
-      // Clear the input field for next time
-      document.getElementById('topup-amount').value = ''; 
-    } else {
-      document.getElementById('result-icon').textContent = '❌';
-      document.getElementById('result-title').textContent = 'Failed';
-      document.getElementById('result-title').style.color = 'var(--danger)';
-      document.getElementById('result-body').textContent = data.error || 'Something went wrong.';
-    }
-    document.getElementById('result-overlay').classList.add('show');
-  } catch(e) {
-    dismissConfirm();
-    alert('Network error. Please try again.');
-  }
-  
-  // Reset the confirm button to its default state for meal deductions
+    showResult(data.success,
+      data.success ? '✅' : '❌',
+      data.success ? 'Top Up Complete!' : 'Failed',
+      data.success ? `${amount} credits added. New balance: ${data.new_balance}.` : (data.error||'Error.')
+    );
+    if (data.success) document.getElementById('live-balance').textContent = data.new_balance;
+  } catch(e) { dismissConfirm(); alert('Network error.'); }
   document.getElementById('confirm-ok').disabled = false;
   document.getElementById('confirm-ok').textContent = 'Confirm';
-  document.getElementById('confirm-ok').onclick = doDeduct; 
+}
+
+function showResult(success, icon, title, body) {
+  document.getElementById('result-icon').textContent  = icon;
+  document.getElementById('result-title').textContent = title;
+  document.getElementById('result-title').style.color = success ? 'var(--success)' : 'var(--danger)';
+  document.getElementById('result-body').textContent  = body;
+  document.getElementById('result-overlay').classList.add('show');
 }
 </script>
 {% endblock %}

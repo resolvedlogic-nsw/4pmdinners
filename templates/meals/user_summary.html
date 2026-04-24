@@ -1,8 +1,8 @@
 {% extends "base.html" %}
-{% block title %}{{ family.display_name }} — Church Meals{% endblock %}
+{% block title %}{{ family.display_name }} — {{ branch.name }}{% endblock %}
 {% block header_nav %}
-  <a href="{% url 'meals:change_pin' %}" class="nav-link">PIN</a>
-  <a href="{% url 'meals:family_logout' %}" class="nav-link">Logout</a>
+  <a href="{% url 'branch_change_pin' branch.slug %}" class="nav-link">PIN</a>
+  <a href="{% url 'branch_family_logout' branch.slug %}" class="nav-link">Logout</a>
 {% endblock %}
 {% block content %}
 
@@ -15,57 +15,81 @@
       <span>credits</span>
     </div>
     {% if family.credit_units == 0 %}
-      <span style="font-size:0.85rem; color:var(--danger); font-weight:600;">⚠ No credits remaining</span>
+      <span style="font-size:0.85rem; color:var(--danger); font-weight:600;">⚠ No credits — please top up at the desk</span>
     {% endif %}
   </div>
 </div>
 
-<form method="post" action="{% url 'meals:generate_qr' %}" id="meal-form">
+<form method="post" action="{% url 'branch_generate_qr' branch.slug %}" id="meal-form">
   {% csrf_token %}
-  <input type="hidden" name="adult_count" id="adult_count_input" value="0">
-  <input type="hidden" name="child_count" id="child_count_input" value="0">
 
-  <div class="card animate-in delay-1">
-    <h3 style="margin-bottom:16px;">Select meals</h3>
+  {% if branch.is_children_programme %}
+    {# ── Children's programme: checkbox list ── #}
+    <div class="card animate-in delay-1">
+      <h3 style="margin-bottom:4px;">Who's attending today?</h3>
+      <p class="text-muted" style="font-size:0.85rem; margin-bottom:16px;">1 credit per child selected</p>
 
-    <div class="meal-row">
-      <div>
-        <div class="meal-label">🧑 Adult</div>
-        <div class="meal-cost">{{ adult_unit_cost }} credit{{ adult_unit_cost|pluralize }} each</div>
+      {% if children %}
+        <ul class="child-check-list" id="child-list">
+          {% for child in children %}
+          <li class="child-check-item" onclick="toggleChild({{ child.id }})">
+            <input type="checkbox" name="child_ids" value="{{ child.id }}" id="child-{{ child.id }}" onclick="event.stopPropagation();" onchange="updateChildCount()">
+            <label for="child-{{ child.id }}">{{ child.full_name }}</label>
+          </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <div class="alert alert-warning mb-0">No children registered on this account. Please see the desk to add children.</div>
+      {% endif %}
+    </div>
+
+    <div class="card animate-in delay-2" id="cost-summary" style="display:none;">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <span class="text-muted">Attending</span>
+        <strong id="child-count-display" style="font-family:var(--font-display); font-size:1.2rem; color:var(--green-deep);">0</strong>
       </div>
-      <div class="meal-counter">
-        <button type="button" class="counter-btn" id="adult-dec" onclick="adjust('adult',-1)" disabled>−</button>
-        <span class="counter-val" id="adult-val">0</span>
-        <button type="button" class="counter-btn" id="adult-inc" onclick="adjust('adult',1)" {% if max_adults == 0 %}disabled{% endif %}>+</button>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px;">
+        <span class="text-muted">Credits used</span>
+        <strong id="total-cost-display" style="font-size:1rem; color:var(--ink-muted);">0</strong>
+      </div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px;">
+        <span class="text-muted">Remaining after</span>
+        <strong id="remaining-display" style="font-size:1rem; color:var(--ink-muted);">—</strong>
       </div>
     </div>
 
-    <div class="meal-row">
-      <div>
-        <div class="meal-label">👧 Child</div>
-        <div class="meal-cost">{{ child_unit_cost }} credit{{ child_unit_cost|pluralize }} each</div>
+  {% else %}
+    {# ── Counter-based: dinners, coffee, etc. ── #}
+    <div class="card animate-in delay-1">
+      <h3 style="margin-bottom:16px;">Select items</h3>
+      {% for product in products %}
+      <div class="meal-row">
+        <div>
+          <div class="meal-label">{{ product.icon }} {{ product.name }}</div>
+          <div class="meal-cost">{{ product.credit_cost }} credit{% if product.credit_cost != 1 %}s{% endif %} each</div>
+        </div>
+        <div class="meal-counter">
+          <button type="button" class="counter-btn" id="dec-{{ product.id }}" onclick="adjust({{ product.id }}, -1)" disabled>−</button>
+          <span class="counter-val" id="val-{{ product.id }}">0</span>
+          <button type="button" class="counter-btn" id="inc-{{ product.id }}" onclick="adjust({{ product.id }}, 1)">+</button>
+          <input type="hidden" name="qty_{{ product.id }}" id="qty-{{ product.id }}" value="0">
+        </div>
       </div>
-      <div class="meal-counter">
-        <button type="button" class="counter-btn" id="child-dec" onclick="adjust('child',-1)" disabled>−</button>
-        <span class="counter-val" id="child-val">0</span>
-        <button type="button" class="counter-btn" id="child-inc" onclick="adjust('child',1)" {% if max_children == 0 %}disabled{% endif %}>+</button>
+      {% endfor %}
+    </div>
+
+    <div class="card animate-in delay-2" id="cost-summary" style="display:none;">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <span class="text-muted">Total cost</span>
+        <strong id="total-cost-display" style="font-size:1.2rem; font-family:var(--font-display); color:var(--green-deep);">0 credits</strong>
+      </div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px;">
+        <span class="text-muted">Remaining after</span>
+        <strong id="remaining-display" style="font-size:1rem; color:var(--ink-muted);">— credits</strong>
       </div>
     </div>
-  </div>
+  {% endif %}
 
-  <!-- Cost summary -->
-  <div class="card animate-in delay-2" id="cost-summary" style="display:none;">
-    <div style="display:flex; justify-content:space-between; align-items:center;">
-      <span class="text-muted">Total cost</span>
-      <strong id="total-cost-display" style="font-size:1.2rem; font-family:var(--font-display); color:var(--green-deep);">0 credits</strong>
-    </div>
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px;">
-      <span class="text-muted">Remaining after</span>
-      <strong id="remaining-display" style="font-size:1rem; color:var(--ink-muted);">— credits</strong>
-    </div>
-  </div>
-
-  <!-- Insufficient credits warning -->
   <div class="alert alert-warning animate-in" id="insufficient-warning" style="display:none;">
     ⚠ Insufficient credits. Please see the desk to top up.
   </div>
@@ -81,46 +105,75 @@
 
 {% block scripts %}
 <script>
-const adultCost  = {{ adult_unit_cost }};
-const childCost  = {{ child_unit_cost }};
-const balance    = {{ family.credit_units }};
-const maxAdults  = {{ max_adults }};
-const maxChildren = {{ max_children }};
+const balance = {{ family.credit_units }};
 
-let adults = 0, children = 0;
+{% if branch.is_children_programme %}
+// ── Children's programme logic ──────────────────────────────────────────────
 
-function adjust(type, delta) {
-  if (type === 'adult') {
-    adults = Math.max(0, Math.min(adults + delta, maxAdults));
-  } else {
-    children = Math.max(0, Math.min(children + delta, maxChildren));
-  }
+function toggleChild(id) {
+  const cb = document.getElementById('child-' + id);
+  cb.checked = !cb.checked;
+  updateChildCount();
+}
+
+function updateChildCount() {
+  const checked = document.querySelectorAll('input[name="child_ids"]:checked');
+  const count   = checked.length;
+  const remaining = balance - count;
+  const canAfford = remaining >= 0;
+
+  document.getElementById('cost-summary').style.display = count > 0 ? '' : 'none';
+  document.getElementById('child-count-display').textContent = count + (count === 1 ? ' child' : ' children');
+  document.getElementById('total-cost-display').textContent  = count + ' credit' + (count !== 1 ? 's' : '');
+  document.getElementById('remaining-display').textContent   = remaining + ' credits';
+  document.getElementById('insufficient-warning').style.display = (count > 0 && !canAfford) ? '' : 'none';
+  document.getElementById('generate-btn').disabled = count === 0 || !canAfford;
+}
+
+{% else %}
+// ── Counter-based logic ──────────────────────────────────────────────────────
+
+const products = [
+  {% for product in products %}
+  { id: {{ product.id }}, cost: {{ product.credit_cost }}, max: Math.floor(balance / {{ product.credit_cost }}) },
+  {% endfor %}
+];
+
+const qtys = {};
+products.forEach(p => qtys[p.id] = 0);
+
+function adjust(productId, delta) {
+  const product = products.find(p => p.id === productId);
+  qtys[productId] = Math.max(0, qtys[productId] + delta);
+  document.getElementById('val-' + productId).textContent = qtys[productId];
+  document.getElementById('qty-' + productId).value = qtys[productId];
+  document.getElementById('dec-' + productId).disabled = qtys[productId] === 0;
   render();
 }
 
 function render() {
-  document.getElementById('adult-val').textContent = adults;
-  document.getElementById('child-val').textContent = children;
-  document.getElementById('adult_count_input').value = adults;
-  document.getElementById('child_count_input').value = children;
+  let total = 0;
+  products.forEach(p => { total += qtys[p.id] * p.cost; });
 
-  document.getElementById('adult-dec').disabled = adults === 0;
-  document.getElementById('adult-inc').disabled = adults >= maxAdults;
-  document.getElementById('child-dec').disabled = children === 0;
-  document.getElementById('child-inc').disabled = children >= maxChildren;
+  // Dynamically cap each product's max based on remaining balance
+  products.forEach(p => {
+    const used = total - (qtys[p.id] * p.cost);
+    const maxNow = p.cost > 0 ? Math.floor((balance - used) / p.cost) : 99;
+    document.getElementById('inc-' + p.id).disabled = qtys[p.id] >= maxNow;
+  });
 
-  const total = adults * adultCost + children * childCost;
   const remaining = balance - total;
-  const hasSelection = (adults + children) > 0;
-  const canAfford = remaining >= 0;
+  const hasSelection = total > 0;
+  const canAfford   = remaining >= 0;
 
   document.getElementById('cost-summary').style.display = hasSelection ? '' : 'none';
-  document.getElementById('total-cost-display').textContent = total + ' credit' + (total !== 1 ? 's' : '');
-  document.getElementById('remaining-display').textContent = remaining + ' credits';
+  document.getElementById('total-cost-display').textContent   = total + ' credit' + (total !== 1 ? 's' : '');
+  document.getElementById('remaining-display').textContent    = remaining + ' credits';
   document.getElementById('insufficient-warning').style.display = (hasSelection && !canAfford) ? '' : 'none';
   document.getElementById('generate-btn').disabled = !hasSelection || !canAfford;
 }
 
 render();
+{% endif %}
 </script>
 {% endblock %}

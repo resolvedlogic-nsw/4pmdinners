@@ -1,7 +1,7 @@
 {% extends "base.html" %}
-{% block title %}Change PIN — Church Meals{% endblock %}
+{% block title %}Change PIN — {{ branch.name }}{% endblock %}
 {% block header_nav %}
-  <a href="{% url 'meals:user_summary' %}" class="nav-link">← Back</a>
+  <a href="{% url 'branch_user_summary' branch.slug %}" class="nav-link">← Back</a>
 {% endblock %}
 {% block content %}
 <div class="animate-in">

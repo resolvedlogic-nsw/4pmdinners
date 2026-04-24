@@ -1,12 +1,12 @@
 {% extends "base.html" %}
-{% block title %}Kiosk Login — Church Meals{% endblock %}
+{% block title %}Kiosk Login — {{ branch.name }}{% endblock %}
 {% block body_class %}kiosk-mode{% endblock %}
 {% block content %}
 <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;text-align:center;">
   <div class="animate-in" style="margin-bottom:24px;">
     <div style="font-size:3rem; margin-bottom:12px;">🖥️</div>
     <h1>Kiosk Login</h1>
-    <p>Enter the kiosk PIN to continue.</p>
+    <p>{{ branch.name }} volunteer access.<br>Enter the kiosk PIN to continue.</p>
   </div>
 
   <form method="post" style="width:100%; max-width:320px;">
@@ -15,7 +15,7 @@
     <div class="card animate-in delay-1">
       <div class="form-group mb-0">
         <label for="pin">Kiosk PIN</label>
-        <input type="tel" name="pin" id="pin" class="pin-input" maxlength="6" inputmode="numeric" placeholder="••••" autocomplete="off" autofocus>
+        <input type="tel" name="pin" id="pin" class="pin-input" maxlength="8" inputmode="numeric" placeholder="••••" autocomplete="off" autofocus>
       </div>
     </div>
     <div class="animate-in delay-2">
@@ -24,7 +24,7 @@
   </form>
 
   <div class="mt-16 animate-in delay-3">
-    <a href="{% url 'meals:index' %}" class="text-muted" style="text-decoration:none; font-size:0.875rem;">← Back to home</a>
+    <a href="{% url 'branch_index' branch.slug %}" class="text-muted" style="text-decoration:none; font-size:0.875rem;">← Back</a>
   </div>
 </div>
 {% endblock %}
