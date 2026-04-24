@@ -151,16 +151,29 @@ const CSRF        = '{{ csrf_token }}';
   const products = [{% for p in products %}{ name:'{{ p.name }}', topupCr:{{ p.topup_credits }}, bundle:{{ p.topup_bundle }} }{% if not forloop.last %},{% endif %}{% endfor %}];
   const seen = new Set();
   const container = document.getElementById('topup-hints');
+  const childCount = {{ children|length|default:0 }};
+
+  function createHint(amount, text) {
+    if (seen.has(amount)) return;
+    seen.add(amount);
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.innerHTML = `💡 <b>${amount} cr</b> = ${text}`;
+    btn.style.cssText = 'background:#fff; border:1px solid #ccc; border-radius:16px; padding:6px 12px; font-size:0.85rem; cursor:pointer;';
+    btn.onclick = () => document.getElementById('topup-amount').value = amount;
+    container.appendChild(btn);
+  }
+
   products.forEach(p => {
-    const key = p.topupCr;
-    if (!seen.has(key)) {
-      seen.add(key);
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.innerHTML = `💡 <b>${p.topupCr} cr</b> = ${p.bundle}× ${p.name}`;
-      btn.style.cssText = 'background:#fff;border:1px solid #ccc;border-radius:16px;padding:6px 12px;font-size:0.85rem;cursor:pointer;';
-      btn.onclick = () => document.getElementById('topup-amount').value = p.topupCr;
-      container.appendChild(btn);
+    // 1. Show the base top-up (for 1 term / 1 child)
+    createHint(p.topupCr, isChildren ? `1 Child` : `${p.bundle}× ${p.name}`);
+
+    // 2. If it's a children's programme, multiply it by the number of kids they have!
+    if (isChildren && childCount > 1) {
+      for (let i = 2; i <= childCount; i++) {
+        const label = (i === childCount) ? `All ${i} Kids` : `${i} Kids`;
+        createHint(p.topupCr * i, label);
+      }
     }
   });
 })();
