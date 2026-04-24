@@ -11,7 +11,7 @@
   <h1 style="margin-bottom:16px;">{{ family.display_name }}</h1>
   <div style="display:flex; align-items:center; gap:10px; margin-bottom:24px; flex-wrap:wrap;">
     <div class="credit-badge {% if family.credit_units == 0 %}low{% endif %}">
-      <span class="credit-num">{{ family.credit_units }}</span>
+      <span class="credit-num">{{ family.credit_units|floatformat:"-2" }}</span>
       <span>credits</span>
     </div>
     {% if family.credit_units == 0 %}
@@ -66,7 +66,7 @@
       <div class="meal-row">
         <div>
           <div class="meal-label">{{ product.icon }} {{ product.name }}</div>
-          <div class="meal-cost">{{ product.credit_cost }} credit{% if product.credit_cost != 1 %}s{% endif %} each</div>
+          <div class="meal-cost">{{ product.credit_cost|floatformat:"-2" }} credit{% if product.credit_cost != 1 %}s{% endif %} each</div>
         </div>
         <div class="meal-counter">
           <button type="button" class="counter-btn" id="dec-{{ product.id }}" onclick="adjust({{ product.id }}, -1)" disabled>−</button>
@@ -105,7 +105,7 @@
 
 {% block scripts %}
 <script>
-const balance = {{ family.credit_units }};
+const balance = {{ family.credit_units|floatformat:"-2" }};
 
 {% if branch.is_children_programme %}
 // ── Children's programme logic ──────────────────────────────────────────────
@@ -135,7 +135,7 @@ function updateChildCount() {
 
 const products = [
   {% for product in products %}
-  { id: {{ product.id }}, cost: {{ product.credit_cost }}, max: Math.floor(balance / {{ product.credit_cost }}) },
+  { id: {{ product.id }}, cost: {{ product.credit_cost|floatformat:"-2" }}, max: Math.floor(balance / {{ product.credit_cost|floatformat:"-2" }}) },
   {% endfor %}
 ];
 

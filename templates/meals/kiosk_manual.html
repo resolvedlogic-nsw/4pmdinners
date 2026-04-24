@@ -33,7 +33,7 @@
         onclick="window.location='{% url 'branch_kiosk_family_detail' branch.slug family.id %}'">
       <span class="surname">{{ family.surname }}</span>
       <span class="full-name"> — {{ family.display_name }}</span>
-      <span class="balance">{{ family.credit_units }} cr</span>
+      <span class="balance">{{ family.credit_units|floatformat:"-2" }} cr</span>
     </li>
     {% empty %}
     <li style="padding:16px; color:var(--ink-muted);">No families found.</li>

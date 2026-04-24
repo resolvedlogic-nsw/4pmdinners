@@ -19,7 +19,7 @@
     <div>
       <div style="font-weight:600; font-size:1rem;">{{ product.icon }} {{ product.name }}</div>
       <div class="text-muted" style="font-size:0.85rem;">
-        {{ product.credit_cost }} cr each &nbsp;·&nbsp;
+        {{ product.credit_cost|floatformat:"-2" }} cr each &nbsp;·&nbsp;
         Top-up: {{ product.topup_bundle }}× = {{ product.topup_credits }} cr
         {% if not product.is_active %}&nbsp;·&nbsp;<span style="color:var(--danger);">Inactive</span>{% endif %}
       </div>

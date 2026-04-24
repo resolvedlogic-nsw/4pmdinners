@@ -15,7 +15,7 @@
   {{ qr_svg|safe }}
 
   <div style="margin-top:16px; padding:12px; background:var(--green-pale); border-radius:var(--radius-sm);">
-    <strong style="font-size:1.1rem; color:var(--green-deep);">Using {{ nonce.credit_units }} credit{{ nonce.credit_units|floatformat:0|pluralize }}</strong>
+    <strong style="font-size:1.1rem; color:var(--green-deep);">Using {{ nonce.credit_units|floatformat:"-2" }} credit{{ nonce.credit_units|floatformat:0|pluralize }}</strong>
     {% if selected_children %}
       <div class="text-muted" style="font-size:0.875rem; margin-top:4px;">
         {% for child in selected_children %}{{ child.first_name }}{% if not forloop.last %}, {% endif %}{% endfor %}

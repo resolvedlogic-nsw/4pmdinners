@@ -11,7 +11,7 @@
   <p class="text-muted" style="font-size:0.85rem; text-transform:uppercase; letter-spacing:.06em; font-weight:600; margin-bottom:4px;">Manual entry</p>
   <h1 style="margin-bottom:12px;">{{ family.display_name }}</h1>
   <div class="credit-badge {% if family.credit_units == 0 %}low{% endif %}" style="margin-bottom:20px;">
-    <span class="credit-num" id="live-balance">{{ family.credit_units }}</span>
+    <span class="credit-num" id="live-balance">{{ family.credit_units|floatformat:"-2" }}</span>
     <span>credits</span>
   </div>
 </div>
@@ -46,7 +46,7 @@
     <div class="meal-row">
       <div>
         <div class="meal-label">{{ product.icon }} {{ product.name }}</div>
-        <div class="meal-cost">{{ product.credit_cost }} credit{% if product.credit_cost != 1 %}s{% endif %} each</div>
+        <div class="meal-cost">{{ product.credit_cost|floatformat:"-2" }} credit{% if product.credit_cost != 1 %}s{% endif %} each</div>
       </div>
       <div class="meal-counter">
         <button type="button" class="counter-btn" id="kdec-{{ product.id }}" onclick="kAdjust({{ product.id }},-1)" disabled>−</button>
@@ -107,7 +107,7 @@
       {% if txn.notes %}<div class="text-muted" style="font-size:0.8rem;">{{ txn.notes }}</div>{% endif %}
     </div>
     <div class="txn-delta {% if txn.credit_delta >= 0 %}pos{% else %}neg{% endif %}">
-      {% if txn.credit_delta >= 0 %}+{% endif %}{{ txn.credit_delta }}
+      {% if txn.credit_delta >= 0 %}+{% endif %}{{ txn.credit_delta|floatformat:"-2" }}
     </div>
   </div>
   {% endfor %}
