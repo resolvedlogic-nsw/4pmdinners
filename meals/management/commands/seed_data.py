@@ -1,39 +1,47 @@
 """
 Management command: python manage.py seed_data
-Creates sample families, pricing, and a superuser for testing.
+Creates sample branches, products, families, and a superuser for testing.
 """
 from django.core.management.base import BaseCommand
 from django.contrib.auth.models import User
-from meals.models import Family, MealPricing
+from meals.models import Branch, Product, Family
 from meals.utils import hash_pin
 
-
 SAMPLE_FAMILIES = [
-    ("O'Shea", "O'Shea — Connan & Belinda",    "Connan O'Shea",  "0101"),
-    ("Smith",  "Smith — James & Rachel",        "James Smith",    "1503"),
-    ("Nguyen", "Nguyen — Minh & Linh",          "Minh Nguyen",    "2207"),
-    ("Brown",  "Brown — David & Sarah",         "David Brown",    "0906"),
-    ("Taylor", "Taylor — Michael & Kate",       "Michael Taylor", "1412"),
-    ("Wilson", "Wilson — Andrew & Fiona",       "Andrew Wilson",  "3011"),
-    ("Jones",  "Jones — Peter & Sue",           "Peter Jones",    "0804"),
-    ("Lee",    "Lee — Daniel & Amy",            "Daniel Lee",     "1708"),
-    ("Martin", "Martin — Chris & Joanne",       "Chris Martin",   "2502"),
-    ("White",  "White — Robert & Lisa",         "Robert White",   "0710"),
+    ("O'Shea", "O'Shea — Connan & Belinda",    "Connan",  "0101"),
+    ("Smith",  "Smith — James & Rachel",        "James",   "1503"),
+    ("Nguyen", "Nguyen — Minh & Linh",          "Minh",    "2207"),
+    ("Brown",  "Brown — David & Sarah",         "David",   "0906"),
+    ("Lee",    "Lee — Daniel & Amy",            "Daniel",  "1708"),
 ]
 
-
 class Command(BaseCommand):
-    help = 'Seeds the database with sample families and pricing data.'
+    help = 'Seeds the database with sample branches, products, and families.'
 
     def handle(self, *args, **options):
-        # Pricing
-        MealPricing.objects.get_or_create(meal_type='adult',  defaults={'unit_cost': 2, 'is_active': True})
-        MealPricing.objects.get_or_create(meal_type='child',  defaults={'unit_cost': 1, 'is_active': True})
-        self.stdout.write('✓ Pricing set: Adult=2 credits, Child=1 credit')
+        # 1. Create a Branch
+        branch, _ = Branch.objects.get_or_create(
+            slug='dinners',
+            defaults={
+                'name': '4pm Dinners',
+                'branch_type': 'dinners',
+                'theme': 'green',
+                'icon': '🍽️',
+                'kiosk_pin_hash': hash_pin('1234'),
+                'is_active': True
+            }
+        )
+        self.stdout.write('✓ Branch created: 4pm Dinners (Kiosk PIN: 1234)')
 
-        # Families
+        # 2. Create Products
+        Product.objects.get_or_create(branch=branch, name='Adult Meal', defaults={'credit_cost': 2, 'icon': '🧑', 'topup_bundle': 10, 'topup_credits': 20, 'order': 1})
+        Product.objects.get_or_create(branch=branch, name='Child Meal', defaults={'credit_cost': 1, 'icon': '🧒', 'topup_bundle': 10, 'topup_credits': 10, 'order': 2})
+        self.stdout.write('✓ Products created: Adult (2cr), Child (1cr)')
+
+        # 3. Create Families
         for surname, display_name, primary_contact, ddmm in SAMPLE_FAMILIES:
-            family, created = Family.objects.get_or_create(
+            Family.objects.get_or_create(
+                branch=branch,
                 surname=surname,
                 primary_contact=primary_contact,
                 defaults={
@@ -43,14 +51,11 @@ class Command(BaseCommand):
                     'is_active': True,
                 }
             )
-            status = 'created' if created else 'exists'
-            self.stdout.write(f'  {status}: {display_name} (PIN: {ddmm})')
+            self.stdout.write(f'  Created: {display_name} (PIN: {ddmm})')
 
-        # Superuser
+        # 4. Superuser
         if not User.objects.filter(username='admin').exists():
             User.objects.create_superuser('admin', 'admin@church.local', 'admin123')
             self.stdout.write('✓ Superuser created: admin / admin123')
-        else:
-            self.stdout.write('✓ Superuser already exists')
 
         self.stdout.write(self.style.SUCCESS('\nDatabase seeded successfully!'))
