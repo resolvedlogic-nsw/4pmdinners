@@ -4,7 +4,7 @@ Creates sample branches, products, families, and a superuser for testing.
 """
 from django.core.management.base import BaseCommand
 from django.contrib.auth.models import User
-from meals.models import Branch, Product, Family
+from meals.models import Branch, Product, Family, FamilyBalance
 from meals.utils import hash_pin
 
 SAMPLE_FAMILIES = [
@@ -38,22 +38,28 @@ class Command(BaseCommand):
         Product.objects.get_or_create(branch=branch, name='Child Meal', defaults={'credit_cost': 1, 'icon': '🧒', 'topup_bundle': 10, 'topup_credits': 10, 'order': 2})
         self.stdout.write('✓ Products created: Adult (2cr), Child (1cr)')
 
-        # 3. Create Families
+        # 3. Create Families (Independent of Branch)
         for surname, display_name, primary_contact, ddmm in SAMPLE_FAMILIES:
-            Family.objects.get_or_create(
-                branch=branch,
+            # We remove branch=branch from here!
+            family, created = Family.objects.get_or_create(
                 surname=surname,
                 primary_contact=primary_contact,
                 defaults={
                     'display_name': display_name,
                     'pin_hash': hash_pin(ddmm),
-                    'credit_units': 10,
                     'is_active': True,
                 }
             )
-            self.stdout.write(f'  Created: {display_name} (PIN: {ddmm})')
+            
+            # 4. Now we set the balance in the specific BRANCH POCKET
+            # The signals in models.py usually create this, but we'll be explicit:
+            pocket, _ = FamilyBalance.objects.get_or_create(family=family, branch=branch)
+            pocket.balance = 20  # Give them 20 starting credits in the 'Dinners' pocket
+            pocket.save()
+            
+            self.stdout.write(f'  Created: {display_name} (PIN: {ddmm}) + 20cr in Dinners')
 
-        # 4. Superuser
+        # 5. Superuser
         if not User.objects.filter(username='admin').exists():
             User.objects.create_superuser('admin', 'admin@church.local', 'admin123')
             self.stdout.write('✓ Superuser created: admin / admin123')
