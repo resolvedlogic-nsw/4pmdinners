@@ -70,3 +70,18 @@ SESSION_COOKIE_AGE = 60 * 60 * 24 * 180  # 6 months
 SESSION_SAVE_EVERY_REQUEST = True
 
 LOGIN_URL = '/'
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Square Payment Integration
+#  Replace these two values with your real credentials from
+#  https://developer.squareup.com/apps  →  your app  →  Credentials
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Your Square Access Token (starts with EAAAl... in production, or sandbox token)
+SQUARE_ACCESS_TOKEN = 'ABCDEFGHIJKLMENOPQURSTUVWZYZ'   # ← REPLACE THIS
+
+# Your Square Location ID (found in Square Dashboard → Locations, looks like LxxxxxxxxxxxxxxxxX)
+SQUARE_LOCATION_ID  = 'YOUR_SQUARE_LOCATION_ID_HERE'   # ← REPLACE THIS
+
+# Square environment: 'sandbox' for testing, 'production' for live
+SQUARE_ENVIRONMENT  = 'sandbox'   # ← change to 'production' when ready to go live
