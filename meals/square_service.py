@@ -9,7 +9,7 @@ from django.conf import settings
 
 
 def _get_client():
-    from square.client import Client
+    from square_legacy.client import Client
     return Client(
         access_token=settings.SQUARE_ACCESS_TOKEN,
         environment=settings.SQUARE_ENVIRONMENT,  # 'sandbox' or 'production'
