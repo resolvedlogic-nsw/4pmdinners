@@ -68,8 +68,8 @@ function runCustomAudit() {
   const to = document.getElementById('audit-to').value;
   if (!from || !to) return alert('Please select both dates');
   
-  // Corrected the Django variable brackets here
-  window.location.href = "/{{ branch.slug }}/kiosk/export/transactions/?start=${from}&end=${to}";
+  // Use standard string concatenation to avoid Django/JS curly brace confusion
+  window.location.href = "/" + "{{ branch.slug }}" + "/kiosk/export/transactions/?start=" + from + "&end=" + to;
 }
 </script>
 {% endblock %}
