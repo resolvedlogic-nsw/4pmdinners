@@ -58,9 +58,7 @@ def create_payment_link(order_record, success_url, cancel_url):
             'redirect_url':          success_url,
             'ask_for_shipping_address': False,
         },
-        'pre_populated_data': {
-            'buyer_email': '',  # could populate if families have emails in future
-        },
+ 
     }
 
     result = client.checkout.create_payment_link(body=body)
