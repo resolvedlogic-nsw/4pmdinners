@@ -855,4 +855,4 @@ def settings_product_delete(request, product_id):
         product.is_active = False
         product.save()
         messages.success(request, f'Product "{product.name}" deactivated.')
-    return redirect('settings_products', branch_id=branch_id)
+    return redirect('settings_products', branch_id=branch_id)  
