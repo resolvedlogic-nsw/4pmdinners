@@ -81,23 +81,50 @@ navigator.mediaDevices.enumerateDevices()
 cameraSelect.addEventListener('change', e => startCamera(e.target.value));
 
 async function startCamera(deviceId) {
-  if (currentStream) currentStream.getTracks().forEach(t => t.stop());
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: { deviceId: { exact: deviceId }, width: { ideal: 1280 }, height: { ideal: 720 } }
-    });
-    currentStream  = stream;
-    video.srcObject = stream;
-    video.play().then(() => {
-      statusEl.textContent = 'Ready — hold a QR code in view';
-      statusEl.style.background = 'rgba(0,0,0,0.5)';
-      scanning = true;
-      requestAnimationFrame(scanLoop);
-    });
-  } catch(e) {
-    statusEl.textContent = 'Camera unavailable. Check permissions.';
+    if (currentStream) {
+        currentStream.getTracks().forEach(t => t.stop());
+    }
+
+    // Define different 'attempts' at opening the camera
+    // This gives us fallbacks if the specific deviceId is cranky
+    const constraints = [
+        // Plan A: Try the specific device selected in the dropdown
+        { video: { deviceId: deviceId ? { exact: deviceId } : undefined } },
+        // Plan B: Just ask for any back-facing camera
+        { video: { facingMode: { preferred: "environment" } } },
+        // Plan C: Ultimate fallback - just give me any video feed that works
+        { video: true }
+    ];
+
+    let lastError = null;
+
+    for (const constraint of constraints) {
+        try {
+            console.log("Attempting camera with:", constraint);
+            const stream = await navigator.mediaDevices.getUserMedia(constraint);
+            
+            currentStream = stream;
+            video.srcObject = stream;
+            
+            // Ensure the video is actually playing before starting the loop
+            await video.play();
+            
+            statusEl.textContent = 'Ready — hold a QR code in view';
+            statusEl.style.background = 'rgba(0,0,0,0.5)';
+            scanning = true;
+            requestAnimationFrame(scanLoop);
+            return; // Success! Exit the function
+            
+        } catch (e) {
+            console.warn("Constraint failed:", constraint, e);
+            lastError = e;
+            // Loop continues to try the next Plan (B or C)
+        }
+    }
+
+    // If we reach here, all Plan A, B, and C failed
+    statusEl.innerHTML = `✕ <strong>Camera Error:</strong> ${lastError.name}<br><small>Try restarting the browser app.</small>`;
     statusEl.style.background = 'rgba(192,57,43,0.8)';
-  }
 }
 
 function scanLoop() {
