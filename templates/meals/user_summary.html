@@ -9,12 +9,15 @@
 <div class="animate-in">
   <p class="text-muted" style="font-size:0.85rem; text-transform:uppercase; letter-spacing:.06em; font-weight:600; margin-bottom:4px;">Welcome back</p>
   <h1 style="margin-bottom:16px;">{{ family.display_name }}</h1>
-  <div style="display:flex; align-items:center; gap:10px; margin-bottom:24px; flex-wrap:wrap;">
+<div style="display:flex; align-items:center; gap:10px; margin-bottom:24px; flex-wrap:wrap;">
     <div class="credit-badge {% if family.credit_units == 0 %}low{% endif %}">
       <span class="credit-num">{{ family.credit_units|floatformat:"-2" }}</span>
       <span>credits</span>
     </div>
-    {% if family.credit_units == 0 %}
+    
+    {% if has_online_topup %}
+      <a href="{% url 'branch_topup_select' branch.slug %}" class="btn btn-primary btn-sm" style="width:auto; padding:8px 16px;">💳 Top Up</a>
+    {% elif family.credit_units == 0 %}
       <span style="font-size:0.85rem; color:var(--danger); font-weight:600;">⚠ No credits — please top up at the desk</span>
     {% endif %}
   </div>
