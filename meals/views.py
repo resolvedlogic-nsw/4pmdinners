@@ -242,13 +242,13 @@ def topup_checkout(request, branch_slug):
                     
                     if product.available_online:
                         line_aud = product.price_aud * qty
-                        line_credits = product.topup_credits * qty
+                        line_credits = (product.credit_cost * product.topup_bundle) * qty
                         
                         total_aud += line_aud
                         credits_to_add += Decimal(line_credits)
                         
                         cart_items.append({
-                            'name': f"{product.name} — {product.topup_bundle} credits",
+                            'name': f"{product.name} — {product.topup_bundle} meals (+{line_credits} credits)",
                             'quantity': str(qty),
                             'unit_price_cents': int(product.price_aud * 100)
                         })
