@@ -29,29 +29,25 @@ def create_payment_link(order_record, success_url, cancel_url):
     """
     client = _get_client()
 
-    # Square works in cents (smallest currency unit)
-    unit_price_cents = int(order_record.amount_aud * 100)
+    # Build the line items dynamically from the cart data
+    line_items = []
+    for item in order_record.cart_data:
+        line_items.append({
+            'name': item['name'],
+            'quantity': item['quantity'],
+            'base_price_money': {
+                'amount': item['unit_price_cents'],
+                'currency': 'AUD',
+            },
+            'note': f"Branch: {order_record.family.branch.name} | Family: {order_record.family.display_name}",
+        })
 
     body = {
         'idempotency_key': str(order_record.id),  # our UUID prevents duplicate charges
         'order': {
             'location_id': settings.SQUARE_LOCATION_ID,
             'reference_id': str(order_record.id),   # our internal order ID on Square reports
-            'line_items': [
-                {
-                    'name': f"{order_record.product.name} — {order_record.product.topup_bundle} credits",
-                    'quantity': str(order_record.quantity),
-                    'base_price_money': {
-                        'amount': unit_price_cents,
-                        'currency': 'AUD',
-                    },
-                    'note': (
-                        f"Branch: {order_record.family.branch.name} | "
-                        f"Family: {order_record.family.display_name} | "
-                        f"Credits: +{int(order_record.credits_to_add)}"
-                    ),
-                }
-            ],
+            'line_items': line_items,
             'metadata': {
                 'order_uuid':   str(order_record.id),
                 'family_id':    str(order_record.family_id),

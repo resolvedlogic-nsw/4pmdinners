@@ -141,8 +141,14 @@ class SquarePaymentOrder(models.Model):
     ]
     id                     = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     family                 = models.ForeignKey(Family, on_delete=models.PROTECT, related_name='square_orders')
-    product                = models.ForeignKey(Product, on_delete=models.PROTECT)
+    
+    # --- CART UPDATES ---
+    product                = models.ForeignKey(Product, on_delete=models.SET_NULL, null=True, blank=True)
     quantity               = models.PositiveIntegerField(default=1)
+    cart_summary           = models.CharField(max_length=255, blank=True)
+    cart_data              = models.JSONField(default=list, blank=True)
+    # --------------------
+
     credits_to_add         = models.DecimalField(max_digits=10, decimal_places=2)
     amount_aud             = models.DecimalField(max_digits=8, decimal_places=2)
     square_order_id        = models.CharField(max_length=200, blank=True)
@@ -156,8 +162,8 @@ class SquarePaymentOrder(models.Model):
         ordering = ['-created_at']
 
     def __str__(self):
-        return f"{self.family} — {self.product.name} x{self.quantity} ${self.amount_aud} [{self.status}]"
-
+        # Update the string representation to use the new cart summary
+        return f"{self.family} — {self.cart_summary} ${self.amount_aud} [{self.status}]"
 
 class QRCodeNonce(models.Model):
     id           = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

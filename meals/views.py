@@ -221,34 +221,54 @@ def topup_select(request, branch_slug):
 @require_family_session
 @require_POST
 def topup_checkout(request, branch_slug):
-    """Creates a Square payment link and redirects the family to Square to pay."""
     from .square_service import create_payment_link
 
     branch = get_branch_or_404(branch_slug)
     family = get_object_or_404(Family, id=request.session['family_id'], branch=branch)
 
-    product_id = request.POST.get('product_id')
-    try:
-        quantity = max(1, int(request.POST.get('quantity', 1)))
-    except ValueError:
-        quantity = 1
+    total_aud = Decimal(0)
+    credits_to_add = Decimal(0)
+    cart_items = []
+    summary_parts = []
 
-    product = get_object_or_404(Product, id=product_id, branch=branch, is_active=True)
+    # Loop through the submitted form to find any product quantities > 0
+    for key, value in request.POST.items():
+        if key.startswith('qty_'):
+            try:
+                qty = int(value)
+                if qty > 0:
+                    product_id = int(key.replace('qty_', ''))
+                    product = get_object_or_404(Product, id=product_id, branch=branch, is_active=True)
+                    
+                    if product.available_online:
+                        line_aud = product.price_aud * qty
+                        line_credits = product.topup_credits * qty
+                        
+                        total_aud += line_aud
+                        credits_to_add += Decimal(line_credits)
+                        
+                        cart_items.append({
+                            'name': f"{product.name} — {product.topup_bundle} credits",
+                            'quantity': str(qty),
+                            'unit_price_cents': int(product.price_aud * 100)
+                        })
+                        summary_parts.append(f"{qty}× {product.name}")
+            except ValueError:
+                pass
 
-    if not product.available_online:
-        messages.error(request, 'That product is not available for online purchase.')
+    if not cart_items:
+        messages.error(request, 'Please select at least one product.')
         return redirect('branch_topup_select', branch_slug=branch_slug)
 
-    total_aud = product.price_aud * quantity
-    credits_to_add = Decimal(product.topup_credits) * quantity
+    cart_summary = ", ".join(summary_parts)
 
-    # Create our internal order record first
     order = SquarePaymentOrder.objects.create(
         family=family,
-        product=product,
-        quantity=quantity,
+        product=None, 
         credits_to_add=credits_to_add,
         amount_aud=total_aud,
+        cart_summary=cart_summary,
+        cart_data=cart_items
     )
 
     base = _site_base_url(request)
@@ -305,7 +325,7 @@ def topup_success(request, branch_slug):
             reason='online_topup',
             performed_by='square_online',
             notes=(
-                f"Square online: {order.quantity}× {order.product.name} "
+                f"Square online: {order.cart_summary} "
                 f"(${order.amount_aud} AUD) → +{order.credits_to_add} credits"
             ),
         )
@@ -374,7 +394,7 @@ def topup_webhook(request, branch_slug):
                 reason='online_topup',
                 performed_by='square_online',
                 notes=(
-                    f"Square webhook: {order.quantity}× {order.product.name} "
+                    f"Square online: {order.cart_summary} "
                     f"(${order.amount_aud} AUD) → +{order.credits_to_add} credits"
                 ),
             )

@@ -44,12 +44,8 @@
 
     <div class="card animate-in delay-1" style="width:100%; max-width:340px; margin:20px auto; text-align:left;">
       <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--cream-dark);">
-        <span class="text-muted">Product</span>
-        <strong>{{ order.product.name }}</strong>
-      </div>
-      <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--cream-dark);">
-        <span class="text-muted">Quantity</span>
-        <strong>{{ order.quantity }}</strong>
+        <span class="text-muted">Items Purchased</span>
+        <strong style="text-align:right;">{{ order.cart_summary }}</strong>
       </div>
       <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--cream-dark);">
         <span class="text-muted">Amount paid</span>
@@ -60,7 +56,6 @@
         <strong style="color:var(--success);">+{{ order.credits_to_add|floatformat:"-2" }}</strong>
       </div>
     </div>
-
     <div class="credit-badge animate-in delay-2" style="margin:0 auto 24px; display:inline-flex;">
       <span class="credit-num">{{ family.credit_units|floatformat:"-2" }}</span>
       <span>credits remaining</span>

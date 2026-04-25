@@ -23,60 +23,50 @@
 
 <form method="post" action="{% url 'branch_topup_checkout' branch.slug %}" id="topup-form">
   {% csrf_token %}
-  <input type="hidden" name="product_id" id="selected-product-id" value="">
-  <input type="hidden" name="quantity" id="selected-quantity" value="1">
 
   <div style="display:flex; flex-direction:column; gap:12px;" class="animate-in delay-2">
     {% for product in online_products %}
-    <div class="card topup-option" data-product-id="{{ product.id }}"
-         data-price="{{ product.price_aud }}" data-credits="{{ product.topup_credits }}"
-         data-name="{{ product.name }}"
-         onclick="selectProduct({{ product.id }}, {{ product.price_aud }}, {{ product.topup_credits }}, '{{ product.name|escapejs }}')"
-         style="cursor:pointer; border:2px solid transparent; transition:border-color 0.2s, transform 0.15s; padding:20px;">
+    <div class="card" style="padding:20px; border:1px solid var(--cream-dark);">
       <div style="display:flex; justify-content:space-between; align-items:center;">
         <div>
           <div style="font-size:1.5rem; margin-bottom:4px;">{{ product.icon }}</div>
           <div style="font-weight:700; font-size:1.05rem; color:var(--green-deep);">{{ product.name }}</div>
           <div class="text-muted" style="font-size:0.85rem; margin-top:2px;">
-            {{ product.topup_bundle }} × sessions = {{ product.topup_credits }} credits
+            ${{ product.price_aud }} AUD = {{ product.topup_credits }} credits
           </div>
-        </div>
-        <div style="text-align:right;">
-          <div style="font-family:var(--font-display); font-size:1.8rem; color:var(--green-deep); line-height:1;">${{ product.price_aud }}</div>
-          <div class="text-muted" style="font-size:0.8rem;">AUD</div>
         </div>
       </div>
 
-      <!-- Quantity selector — shown after selection -->
-      <div class="qty-row" id="qty-row-{{ product.id }}" style="display:none; margin-top:16px; padding-top:16px; border-top:1px solid var(--cream-dark);">
+      <div style="margin-top:16px; padding-top:16px; border-top:1px solid var(--cream-dark);">
         <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
           <span style="font-weight:600;">Quantity</span>
           <div class="meal-counter" style="max-width:160px;">
             <button type="button" class="counter-btn" onclick="event.stopPropagation(); changeQty({{ product.id }}, -1)">−</button>
-            <span class="counter-val" id="qty-display-{{ product.id }}">1</span>
+            <span class="counter-val" id="qty-display-{{ product.id }}">0</span>
             <button type="button" class="counter-btn" onclick="event.stopPropagation(); changeQty({{ product.id }}, 1)">+</button>
           </div>
-        </div>
-        <div style="display:flex; justify-content:space-between; margin-top:12px; font-size:0.9rem;">
-          <span class="text-muted">Total</span>
-          <strong id="total-display-{{ product.id }}" style="color:var(--green-deep);">${{ product.price_aud }}</strong>
-        </div>
-        <div style="display:flex; justify-content:space-between; margin-top:4px; font-size:0.9rem;">
-          <span class="text-muted">Credits you'll receive</span>
-          <strong id="credits-display-{{ product.id }}" style="color:var(--green-deep);">{{ product.topup_credits }}</strong>
+          <input type="hidden" name="qty_{{ product.id }}" id="qty-input-{{ product.id }}" value="0">
         </div>
       </div>
     </div>
     {% endfor %}
   </div>
 
-  <div class="animate-in delay-3" style="margin-top:20px;">
+  <div class="card animate-in delay-3" style="margin-top:20px; background:var(--green-pale); border:none;">
+    <div style="display:flex; justify-content:space-between; font-weight:700; font-size:1.2rem; color:var(--green-deep);">
+      <span>Total to Pay</span>
+      <span id="grand-total-aud">$0.00</span>
+    </div>
+    <div style="display:flex; justify-content:space-between; margin-top:8px; font-size:0.9rem;">
+      <span class="text-muted">Total Credits Received</span>
+      <strong id="grand-total-credits" style="color:var(--green-deep);">0</strong>
+    </div>
+  </div>
+
+  <div class="animate-in delay-4" style="margin-top:20px;">
     <button type="submit" class="btn btn-primary" id="pay-btn" disabled style="font-size:1.1rem; min-height:60px;">
       💳 Pay with Square
     </button>
-    <p class="text-muted" style="font-size:0.8rem; text-align:center; margin-top:8px;">
-      You'll be taken to Square's secure payment page. We never see your card details.
-    </p>
   </div>
 </form>
 
@@ -87,51 +77,33 @@
 
 {% block scripts %}
 <script>
-let selectedProductId = null;
-const qtys = {};
+const products = {
+  {% for product in online_products %}
+  "{{ product.id }}": { 
+    price: {{ product.price_aud }}, 
+    credits: {{ product.topup_credits }}, 
+    qty: 0 
+  },
+  {% endfor %}
+};
 
-function selectProduct(productId, unitPrice, creditsPerBundle, name) {
-  // Deselect previous
-  document.querySelectorAll('.topup-option').forEach(el => {
-    el.style.borderColor = 'transparent';
-    el.style.transform = '';
-  });
-  document.querySelectorAll('.qty-row').forEach(el => el.style.display = 'none');
-
-  // Select new
-  const card = document.querySelector(`[data-product-id="${productId}"]`);
-  card.style.borderColor = 'var(--green-light)';
-  card.style.transform = 'translateY(-2px)';
-  document.getElementById(`qty-row-${productId}`).style.display = '';
-
-  if (!qtys[productId]) qtys[productId] = 1;
-  selectedProductId = productId;
-
-  document.getElementById('selected-product-id').value = productId;
-  document.getElementById('selected-quantity').value = qtys[productId];
-  document.getElementById('pay-btn').disabled = false;
-
-  updateTotals(productId, unitPrice, creditsPerBundle);
-}
-
-function changeQty(productId, delta) {
-  if (!qtys[productId]) qtys[productId] = 1;
-  qtys[productId] = Math.max(1, Math.min(10, qtys[productId] + delta));
-  document.getElementById(`qty-display-${productId}`).textContent = qtys[productId];
-  document.getElementById('selected-quantity').value = qtys[productId];
-
-  const card = document.querySelector(`[data-product-id="${productId}"]`);
-  const unitPrice = parseFloat(card.dataset.price);
-  const creditsPerBundle = parseInt(card.dataset.credits);
-  updateTotals(productId, unitPrice, creditsPerBundle);
-}
-
-function updateTotals(productId, unitPrice, creditsPerBundle) {
-  const qty = qtys[productId] || 1;
-  const total = (unitPrice * qty).toFixed(2);
-  const credits = creditsPerBundle * qty;
-  document.getElementById(`total-display-${productId}`).textContent = `$${total}`;
-  document.getElementById(`credits-display-${productId}`).textContent = credits;
+function changeQty(id, delta) {
+  let p = products[id];
+  p.qty = Math.max(0, p.qty + delta);
+  document.getElementById('qty-display-' + id).textContent = p.qty;
+  document.getElementById('qty-input-' + id).value = p.qty;
+  
+  let totalAud = 0;
+  let totalCredits = 0;
+  
+  for (let key in products) {
+    totalAud += products[key].qty * products[key].price;
+    totalCredits += products[key].qty * products[key].credits;
+  }
+  
+  document.getElementById('grand-total-aud').textContent = '$' + totalAud.toFixed(2);
+  document.getElementById('grand-total-credits').textContent = totalCredits;
+  document.getElementById('pay-btn').disabled = (totalAud === 0);
 }
 </script>
 {% endblock %}
