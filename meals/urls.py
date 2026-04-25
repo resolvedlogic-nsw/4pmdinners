@@ -42,6 +42,7 @@ urlpatterns = [
     path('<slug:branch_slug>/kiosk/family/<int:family_id>/children/', views.kiosk_manage_children, name='branch_kiosk_manage_children'),
     path('<slug:branch_slug>/kiosk/export/attendance/', views.kiosk_export_attendance, name='branch_kiosk_export_attendance'),
     path('<slug:branch_slug>/kiosk/export/roster/', views.kiosk_export_roster, name='branch_kiosk_export_roster'),
+    path('<slug:branch_slug>/kiosk/export/transactions/', views.kiosk_export_transactions, name='branch_kiosk_export_transactions'),    
 
     # ── Branch-scoped API endpoints ───────────────────────────────────────────
     path('<slug:branch_slug>/api/qr/redeem/', views.api_redeem_qr, name='branch_api_redeem_qr'),
