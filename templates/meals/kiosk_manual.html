@@ -26,14 +26,14 @@
 
 <div class="card animate-in delay-2" style="padding:0; overflow-y:auto; max-height: calc(100vh - 260px);">
   <ul class="family-list" id="family-list">
-    {% for family in families %}
+    {% for pocket in balances %}
     <li class="family-item"
-        data-surname="{{ family.surname|lower }}"
-        data-name="{{ family.display_name|lower }}"
-        onclick="window.location='{% url 'branch_kiosk_family_detail' branch.slug family.id %}'">
-      <span class="surname">{{ family.surname }}</span>
-      <span class="full-name"> — {{ family.display_name }}</span>
-      <span class="balance">{{ family.credit_units|floatformat:"-2" }} cr</span>
+        data-surname="{{ pocket.family.surname|lower }}"
+        data-name="{{ pocket.family.display_name|lower }}"
+        onclick="window.location='{% url 'branch_kiosk_family_detail' branch.slug pocket.family.id %}'">
+      <span class="surname">{{ pocket.family.surname }}</span>
+      <span class="full-name"> — {{ pocket.family.display_name }}</span>
+      <span class="balance">{{ pocket.balance|floatformat:"-2" }} cr</span>
     </li>
     {% empty %}
     <li style="padding:16px; color:var(--ink-muted);">No families found.</li>

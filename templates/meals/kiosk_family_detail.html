@@ -10,8 +10,8 @@
 <div class="animate-in">
   <p class="text-muted" style="font-size:0.85rem; text-transform:uppercase; letter-spacing:.06em; font-weight:600; margin-bottom:4px;">Manual entry</p>
   <h1 style="margin-bottom:12px;">{{ family.display_name }}</h1>
-  <div class="credit-badge {% if family.credit_units == 0 %}low{% endif %}" style="margin-bottom:20px;">
-    <span class="credit-num" id="live-balance">{{ family.credit_units|floatformat:"-2" }}</span>
+  <div class="credit-badge {% if pocket.balance <= 0 %}low{% endif %}" style="margin-bottom:20px;">
+    <span class="credit-num" id="live-balance">{{ pocket.balance|floatformat:"-2" }}</span>
     <span>credits</span>
   </div>
 </div>
@@ -141,7 +141,7 @@
 {% block scripts %}
 <script>
 const familyId    = {{ family.id }};
-const balance     = {{ family.credit_units }};
+const balance     = {{ pocket.balance|default:"0" }};  
 const branchSlug  = '{{ branch.slug }}';
 const isChildren  = {{ branch.is_children_programme|yesno:"true,false" }};
 const CSRF        = '{{ csrf_token }}';
