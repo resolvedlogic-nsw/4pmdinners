@@ -1,0 +1,13 @@
+# Secrets
+.env
+
+# Virtual Environments
+venv/
+env/
+
+# Database (keep your local test data off GitHub)
+db.sqlite3
+
+# Python cache files (keeps your repo clean)
+__pycache__/
+*.pyc
