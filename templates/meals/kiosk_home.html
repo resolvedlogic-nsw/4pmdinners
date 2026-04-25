@@ -19,6 +19,7 @@
   <a href="{% url 'branch_kiosk_manual' branch.slug %}" class="btn btn-secondary" style="font-size:1.2rem; padding:20px;">
     ✏️ Manual Entry
   </a>
+
   {% if branch.is_children_programme %}
   <div style="border-top:1px solid var(--cream-dark); padding-top:16px; display:flex; flex-direction:column; gap:10px;">
     <p class="text-muted mb-0" style="font-size:0.85rem; font-weight:600; text-transform:uppercase; letter-spacing:.05em;">Attendance Exports</p>
@@ -30,5 +31,45 @@
     </a>
   </div>
   {% endif %}
+
+  <div style="border-top:1px solid var(--cream-dark); padding-top:16px; margin-top:8px; display:flex; flex-direction:column; gap:10px;">
+    <p class="text-muted mb-0" style="font-size:0.85rem; font-weight:600; text-transform:uppercase; letter-spacing:.05em;">Financial Audit Exports</p>
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+      <a href="{% url 'branch_kiosk_export_transactions' branch.slug %}?start={% now 'Y-m-d' %}" class="btn btn-ghost btn-sm">Today</a>
+      <a href="{% url 'branch_kiosk_export_transactions' branch.slug %}?start={{ seven_days_ago|date:'Y-m-d' }}" class="btn btn-ghost btn-sm">Past Week</a>
+      <a href="{% url 'branch_kiosk_export_transactions' branch.slug %}?start={{ start_of_month|date:'Y-m-d' }}" class="btn btn-ghost btn-sm">This Month</a>
+      <button onclick="document.getElementById('custom-audit-modal').classList.add('show')" class="btn btn-secondary btn-sm">Custom Range...</button>
+    </div>
+  </div>
 </div>
+
+<div class="overlay" id="custom-audit-modal">
+  <div class="overlay-card" style="text-align:left;">
+    <h3>Custom Audit Export</h3>
+    <p class="text-muted">Select the date range for the CSV export.</p>
+    <div class="form-group">
+      <label>From</label>
+      <input type="date" id="audit-from" value="{% now 'Y-m-d' %}">
+    </div>
+    <div class="form-group">
+      <label>To</label>
+      <input type="date" id="audit-to" value="{% now 'Y-m-d' %}">
+    </div>
+    <div style="display:flex; gap:10px; margin-top:20px;">
+      <button class="btn btn-secondary" onclick="document.getElementById('custom-audit-modal').classList.remove('show')">Cancel</button>
+      <button class="btn btn-primary" onclick="runCustomAudit()">Export CSV</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function runCustomAudit() {
+  const from = document.getElementById('audit-from').value;
+  const to = document.getElementById('audit-to').value;
+  if (!from || !to) return alert('Please select both dates');
+  
+  // Corrected the Django variable brackets here
+  window.location.href = "/{{ branch.slug }}/kiosk/export/transactions/?start=${from}&end=${to}";
+}
+</script>
 {% endblock %}

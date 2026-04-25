@@ -45,9 +45,12 @@ class Product(models.Model):
     )
     is_active     = models.BooleanField(default=True)
     order         = models.PositiveIntegerField(default=0)
+    created_at  = models.DateTimeField(auto_now_add=True)
+    updated_at  = models.DateTimeField(auto_now=True) # Tracks deactivation time
 
     class Meta:
-        ordering = ['order', 'name']
+        # 1. Active first, 2. Your custom 'order', 3. Newest created
+        ordering = ['-is_active', 'order', '-created_at']
 
     def __str__(self):
         return f"{self.branch.name} — {self.name} ({self.credit_cost} cr)"

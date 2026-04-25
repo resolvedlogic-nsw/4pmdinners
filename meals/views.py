@@ -4,7 +4,8 @@ import qrcode
 import qrcode.image.svg
 import io
 from decimal import Decimal
-from datetime import date
+from datetime import date, timedelta
+from django.utils import timezone
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse, HttpResponse
@@ -427,7 +428,14 @@ def kiosk_login(request, branch_slug):
 @require_kiosk_session
 def kiosk_home(request, branch_slug):
     branch = get_branch_or_404(branch_slug)
-    return render(request, 'meals/kiosk_home.html', branch_ctx(branch))
+    today = timezone.localdate()
+    
+    ctx = branch_ctx(branch)
+    ctx.update({
+        'seven_days_ago': today - timedelta(days=7),
+        'start_of_month': today.replace(day=1),
+    })
+    return render(request, 'meals/kiosk_home.html', ctx)
 
 
 def kiosk_logout(request, branch_slug):
@@ -768,6 +776,51 @@ def settings_product_delete(request, product_id):
     branch_id = product.branch_id
     if request.method == 'POST':
         product.is_active = False
+        product.deactivated_at = timezone.now() # Save the timestamp
         product.save()
         messages.success(request, f'Product "{product.name}" deactivated.')
     return redirect('settings_products', branch_id=branch_id)
+
+@require_kiosk_session
+def kiosk_export_transactions(request, branch_slug):
+    branch = get_branch_or_404(branch_slug)
+    
+    # Get range from URL
+    start_str = request.GET.get('start')
+    end_str = request.GET.get('end')
+    
+    today = timezone.localdate()
+    
+    # Logic to handle presets or manual dates
+    if start_str:
+        start_date = date.fromisoformat(start_str)
+    else:
+        start_date = today
+        
+    if end_str:
+        end_date = date.fromisoformat(end_str)
+    else:
+        end_date = today
+
+    # Audit query
+    txns = Transaction.objects.filter(
+        family__branch=branch,
+        timestamp__date__range=[start_date, end_date]
+    ).select_related('family').order_by('-timestamp')
+
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = f'attachment; filename="{branch_slug}_audit_{start_date}.csv"'
+    
+    writer = csv.writer(response)
+    writer.writerow(['Date/Time', 'Family', 'Credits (Delta)', 'Reason', 'Handled By', 'Notes'])
+    
+    for t in txns:
+        writer.writerow([
+            timezone.localtime(t.timestamp).strftime('%d/%m/%Y %H:%M'),
+            t.family.display_name,
+            t.credit_delta,
+            t.get_reason_display(),
+            t.get_performed_by_display(),
+            t.notes
+        ])
+    return response

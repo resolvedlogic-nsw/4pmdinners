@@ -14,23 +14,32 @@
 <!-- Existing products -->
 {% if products %}
 <div class="card animate-in delay-1" style="padding:0;">
-  {% for product in products %}
-  <div style="display:flex; justify-content:space-between; align-items:center; padding:16px 20px; border-bottom:1px solid var(--cream-dark); {% if not product.is_active %}opacity:0.5;{% endif %}">
-    <div>
-      <div style="font-weight:600; font-size:1rem;">{{ product.icon }} {{ product.name }}</div>
-      <div class="text-muted" style="font-size:0.85rem;">
-        {{ product.credit_cost|floatformat:"-2" }} cr each &nbsp;·&nbsp;
-        Top-up: {{ product.topup_bundle }}× = {{ product.topup_credits }} cr
-        {% if not product.is_active %}&nbsp;·&nbsp;<span style="color:var(--danger);">Inactive</span>{% endif %}
-      </div>
+{% for product in products %}
+<div style="display:flex; justify-content:space-between; align-items:center; padding:16px 20px; border-bottom:1px solid var(--cream-dark); {% if not product.is_active %}opacity:0.6; background:var(--cream-dark);{% endif %}">
+  <div>
+    <div style="font-weight:600; font-size:1rem;">
+      {{ product.icon }} {{ product.name }} 
+      {% if not product.is_active %}<span style="font-size:0.7rem; background:#999; color:#fff; padding:2px 6px; border-radius:4px; margin-left:8px;">INACTIVE</span>{% endif %}
     </div>
-    <form method="post" action="{% url 'settings_product_delete' product.id %}"
-          onsubmit="return confirm('Deactivate {{ product.name }}?');">
-      {% csrf_token %}
-      <button type="submit" class="btn btn-danger btn-sm" style="width:auto;" title="Deactivate">🗑</button>
-    </form>
+    <div class="text-muted" style="font-size:0.85rem;">
+      {{ product.credit_cost|floatformat:"-2" }} cr each &nbsp;·&nbsp;
+      
+      {% if product.is_active %}
+        <span title="Date Created">Created: {{ product.created_at|date:"d M Y" }}</span>
+      {% else %}
+        <span title="Date Deactivated" style="color:var(--danger);">Deactivated: {{ product.deactivated_at|date:"d M Y" }}</span>
+      {% endif %}
+    </div>
   </div>
-  {% endfor %}
+  
+  {% if product.is_active %}
+  <form method="post" action="{% url 'settings_product_delete' product.id %}" onsubmit="return confirm('Deactivate {{ product.name }}?');">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-danger btn-sm" style="width:auto;">Deactivate</button>
+  </form>
+  {% endif %}
+</div>
+{% endfor %}
 </div>
 {% endif %}
 
