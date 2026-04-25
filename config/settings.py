@@ -1,11 +1,14 @@
-from pathlib import Path
 import os
+from pathlib import Path
 from dotenv import load_dotenv
-load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
-DEBUG = os.environ.get('DEBUG', 'True') == 'True'
+env_path = BASE_DIR / '.env'
+if env_path.exists():
+    load_dotenv(dotenv_path=env_path)
+else:
+    print(f"CRITICAL: .env file not found at {env_path}")
+SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 ALLOWED_HOSTS = ['*']
 
 INSTALLED_APPS = [
