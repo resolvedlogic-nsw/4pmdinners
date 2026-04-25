@@ -6,21 +6,33 @@
 {% endblock %}
 {% block content %}
 
-<div class="animate-in">
-  <p class="text-muted" style="font-size:0.85rem; text-transform:uppercase; letter-spacing:.06em; font-weight:600; margin-bottom:4px;">Welcome back</p>
-  <h1 style="margin-bottom:16px;">{{ family.display_name }}</h1>
-<div style="display:flex; align-items:center; gap:10px; margin-bottom:24px; flex-wrap:wrap;">
-    <div class="credit-badge {% if family.credit_units == 0 %}low{% endif %}">
-      <span class="credit-num">{{ family.credit_units|floatformat:"-2" }}</span>
-      <span>credits</span>
-    </div>
+<div class="wallet-container" style="display:flex; flex-direction:column; gap:16px;">
+    <h2>Your Church Wallet</h2>
     
-    {% if has_online_topup %}
-      <a href="{% url 'branch_topup_select' branch.slug %}" class="btn btn-primary btn-sm" style="width:auto; padding:8px 16px;">💳 Top Up</a>
-    {% elif family.credit_units == 0 %}
-      <span style="font-size:0.85rem; color:var(--danger); font-weight:600;">⚠ No credits — please top up at the desk</span>
-    {% endif %}
-  </div>
+    {% for pocket in balances %}
+    <div class="card pocket-card" style="padding:16px; border:1px solid var(--cream-dark); border-radius:8px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+                <h3 style="margin:0; font-size:1.2rem;">{{ pocket.branch.icon }} {{ pocket.branch.name }}</h3>
+                <p style="font-size:1.5rem; font-weight:bold; margin:8px 0 0 0;">{{ pocket.balance }} cr</p>
+                
+                {% with approx=pocket.get_approx_balances %}
+                    {% if approx %}
+                        <p style="font-size: 0.85rem; color: #666; margin:4px 0 0 0;">
+                            (Roughly: {{ approx|join:", " }})
+                        </p>
+                    {% else %}
+                        <p style="font-size: 0.85rem; color: #999; margin:4px 0 0 0;">Balance too low for purchases.</p>
+                    {% endif %}
+                {% endwith %}
+            </div>
+            
+            <div>
+                <a href="{% url 'topup_home' pocket.branch.slug %}" class="btn btn-primary btn-sm">Top Up</a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
 </div>
 
 <form method="post" action="{% url 'branch_generate_qr' branch.slug %}" id="meal-form">

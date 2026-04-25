@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Recover PIN — {{ branch.name }}{% endblock %}
+
+{% block content %}
+<div class="card animate-in" style="max-width: 400px; margin: 0 auto;">
+    <h2 class="text-center">{{ branch.icon }} PIN Recovery</h2>
+    <hr>
+
+    {% if error %}
+        <div class="alert alert-error">{{ error }}</div>
+    {% endif %}
+
+    {% if step == '1' %}
+    <form method="POST">
+        {% csrf_token %}
+        <input type="hidden" name="step" value="1">
+        
+        <div class="form-group">
+            <label>Surname</label>
+            <input type="text" name="surname" required autofocus placeholder="e.g. Smith">
+        </div>
+        
+        <div class="form-group">
+            <label>Primary Contact (Mobile or Email)</label>
+            <input type="text" name="primary_contact" required placeholder="As registered">
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block" style="margin-top:20px;">Find My Account</button>
+    </form>
+
+    {% elif step == '2' %}
+    <form method="POST">
+        {% csrf_token %}
+        <input type="hidden" name="step" value="2">
+        <input type="hidden" name="family_id" value="{{ family_id }}">
+
+        <p class="text-muted">Security Question:</p>
+        <p style="font-weight: bold; font-size: 1.1rem; margin-bottom: 20px;">{{ recovery_question }}</p>
+
+        <div class="form-group">
+            <label>Your Answer</label>
+            <input type="text" name="recovery_answer" required autofocus>
+        </div>
+
+        <hr>
+
+        <div class="form-group">
+            <label>New 4-Digit PIN</label>
+            <input type="password" name="new_pin" pattern="[0-9]*" inputmode="numeric" required>
+        </div>
+
+        <div class="form-group">
+            <label>Confirm New PIN</label>
+            <input type="password" name="confirm_pin" pattern="[0-9]*" inputmode="numeric" required>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block" style="margin-top:20px;">Reset PIN & Login</button>
+    </form>
+    {% endif %}
+
+    <div class="text-center" style="margin-top:20px;">
+        <a href="{% url 'branch_family_login' branch.slug %}" class="text-muted">Back to Login</a>
+    </div>
+</div>
+{% endblock %}

@@ -2,16 +2,22 @@ import uuid
 from django.db import models
 from django.utils import timezone
 from datetime import timedelta
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+from django.contrib.auth.hashers import make_password, check_password as django_check_password
 
-
+# ─────────────────────────────────────────────
+#  Branch
+# ─────────────────────────────────────────────
 class Branch(models.Model):
     BRANCH_TYPES = [
         ('dinners', '4pm Dinners'), ('coffee', 'Coffee Sundays'),
         ('jivers', 'Junior Jivers'), ('kids', 'Lighthouse Kids'), ('youth', 'Lighthouse Youth'),
     ]
     THEME_CHOICES = [
-        ('green', 'Green (Dinners)'), ('amber', 'Amber (Coffee)'), ('coral', 'Coral (Junior Jivers)'),
-        ('blue', 'Blue (Kids)'), ('purple', 'Purple (Youth)'), ('slate', 'Slate (Admin/Other)'),
+        ('green', 'Green (Dinners)'), ('amber', 'Amber (Coffee)'),
+        ('coral', 'Coral (Junior Jivers)'), ('blue', 'Blue (Kids)'),
+        ('purple', 'Purple (Youth)'), ('slate', 'Slate (Admin/Other)'),
     ]
     name                  = models.CharField(max_length=100)
     slug                  = models.SlugField(unique=True)
@@ -31,25 +37,26 @@ class Branch(models.Model):
     def __str__(self):
         return self.name
 
-
+# ─────────────────────────────────────────────
+#  Product
+# ─────────────────────────────────────────────
 class Product(models.Model):
     branch        = models.ForeignKey(Branch, on_delete=models.CASCADE, related_name='products')
     name          = models.CharField(max_length=100)
     icon          = models.CharField(max_length=10, default='🎟️')
     credit_cost   = models.DecimalField(max_digits=6, decimal_places=2)
-    topup_bundle  = models.PositiveIntegerField(default=10)
-    topup_credits = models.PositiveIntegerField(default=10)
+    topup_bundle  = models.PositiveIntegerField(default=10, help_text='Units per standard top-up bundle')
+    topup_credits = models.PositiveIntegerField(default=10, help_text='Credits added per bundle purchase')
     price_aud     = models.DecimalField(
         max_digits=8, decimal_places=2, null=True, blank=True,
-        help_text='AUD price for one top-up bundle. Leave blank to disable online purchasing for this product.'
+        help_text='AUD price for one top-up bundle. Leave blank to disable online purchasing.'
     )
     is_active     = models.BooleanField(default=True)
     order         = models.PositiveIntegerField(default=0)
-    created_at  = models.DateTimeField(auto_now_add=True)
-    updated_at  = models.DateTimeField(auto_now=True) # Tracks deactivation time
+    created_at    = models.DateTimeField(auto_now_add=True)
+    updated_at    = models.DateTimeField(auto_now=True)
 
     class Meta:
-        # 1. Active first, 2. Your custom 'order', 3. Newest created
         ordering = ['-is_active', 'order', '-created_at']
 
     def __str__(self):
@@ -59,33 +66,82 @@ class Product(models.Model):
     def available_online(self):
         return self.price_aud is not None and self.price_aud > 0
 
-
+# ─────────────────────────────────────────────
+#  Family (The Unified Account)
+# ─────────────────────────────────────────────
 class Family(models.Model):
-    branch          = models.ForeignKey(Branch, on_delete=models.PROTECT, related_name='families')
-    display_name    = models.CharField(max_length=150)
-    surname         = models.CharField(max_length=100, db_index=True)
-    primary_contact = models.CharField(max_length=100)
-    pin_hash        = models.CharField(max_length=256)
-    credit_units    = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    is_active       = models.BooleanField(default=True)
+    display_name      = models.CharField(max_length=150)
+    surname           = models.CharField(max_length=100, db_index=True)
+    primary_contact   = models.CharField(max_length=100)
+    pin_hash          = models.CharField(max_length=256)
+    is_active         = models.BooleanField(default=True)
+    
+    # PIN recovery fields
+    recovery_question = models.CharField(
+        max_length=255, blank=True,
+        help_text="e.g. \"What street did you grow up on?\""
+    )
+    recovery_answer   = models.CharField(max_length=255, blank=True)
 
     class Meta:
         ordering = ['surname', 'display_name']
         verbose_name_plural = 'Families'
-        unique_together = [['branch', 'surname', 'primary_contact']]
+        unique_together = [['surname', 'primary_contact']]
 
     def __str__(self):
-        return f"{self.display_name} ({self.branch.name})"
+        return self.display_name
 
-    def can_afford(self, cost):
-        return self.credit_units >= cost
+    def set_recovery_answer(self, raw_answer):
+        self.recovery_answer = make_password(raw_answer.strip().lower())
 
-    def max_of_product(self, product):
-        if product.credit_cost == 0:
-            return 99
-        return int(self.credit_units // product.credit_cost)
+    def check_recovery_answer(self, raw_answer):
+        return django_check_password(raw_answer.strip().lower(), self.recovery_answer)
 
+# ─────────────────────────────────────────────
+#  FamilyBalance (The Isolated Pockets)
+# ─────────────────────────────────────────────
+class FamilyBalance(models.Model):
+    family  = models.ForeignKey(Family, on_delete=models.CASCADE, related_name='balances')
+    branch  = models.ForeignKey(Branch, on_delete=models.CASCADE, related_name='balances')
+    balance = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 
+    class Meta:
+        unique_together = [['family', 'branch']]
+        ordering = ['branch__order', 'family__surname']
+
+    def __str__(self):
+        return f"{self.family.display_name} — {self.branch.name}: {self.balance} cr"
+
+    def get_approx_quantities(self):
+        results = []
+        for product in self.branch.products.filter(is_active=True).order_by('credit_cost'):
+            if product.credit_cost > 0:
+                count = int(self.balance / product.credit_cost)
+                if count > 0:
+                    results.append(f"{count}× {product.name}")
+        return results
+
+# Auto-create pockets when a new Family is created
+@receiver(post_save, sender=Family)
+def create_family_balances(sender, instance, created, **kwargs):
+    if created:
+        FamilyBalance.objects.bulk_create(
+            [FamilyBalance(family=instance, branch=b) for b in Branch.objects.filter(is_active=True)],
+            ignore_conflicts=True,
+        )
+
+# Auto-create pockets for existing families if a new Branch is created
+@receiver(post_save, sender=Branch)
+def create_branch_balances(sender, instance, created, **kwargs):
+    if created:
+        FamilyBalance.objects.bulk_create(
+            [FamilyBalance(family=f, branch=instance) for f in Family.objects.filter(is_active=True)],
+            ignore_conflicts=True,
+        )
+
+# ─────────────────────────────────────────────
+#  Child
+# ─────────────────────────────────────────────
 class Child(models.Model):
     family        = models.ForeignKey(Family, on_delete=models.CASCADE, related_name='children')
     first_name    = models.CharField(max_length=100)
@@ -98,13 +154,15 @@ class Child(models.Model):
         verbose_name_plural = 'Children'
 
     def __str__(self):
-        return f"{self.first_name} {self.last_name}".strip()
+        return self.full_name
 
     @property
     def full_name(self):
         return f"{self.first_name} {self.last_name}".strip()
 
-
+# ─────────────────────────────────────────────
+#  Transaction & Audit Trail
+# ─────────────────────────────────────────────
 class Transaction(models.Model):
     REASON_CHOICES = [
         ('qr_redemption',    'QR Redemption'),
@@ -114,12 +172,13 @@ class Transaction(models.Model):
         ('online_topup',     'Online Top-Up (Square)'),
     ]
     PERFORMED_BY_CHOICES = [
-        ('system_qr',      'System (QR)'),
-        ('kiosk_volunteer','Kiosk Volunteer'),
-        ('admin',          'Admin'),
-        ('square_online',  'Square Online'),
+        ('system_qr',       'System (QR)'),
+        ('kiosk_volunteer', 'Kiosk Volunteer'),
+        ('admin',           'Admin'),
+        ('square_online',   'Square Online'),
     ]
     family       = models.ForeignKey(Family, on_delete=models.PROTECT, related_name='transactions')
+    branch       = models.ForeignKey(Branch, on_delete=models.PROTECT, related_name='transactions', null=True, blank=True)
     credit_delta = models.DecimalField(max_digits=10, decimal_places=2)
     reason       = models.CharField(max_length=30, choices=REASON_CHOICES)
     performed_by = models.CharField(max_length=20, choices=PERFORMED_BY_CHOICES)
@@ -133,9 +192,10 @@ class Transaction(models.Model):
         sign = '+' if self.credit_delta >= 0 else ''
         return f"{self.family} {sign}{self.credit_delta} ({self.reason})"
 
-
+# ─────────────────────────────────────────────
+#  Square Payment Order
+# ─────────────────────────────────────────────
 class SquarePaymentOrder(models.Model):
-    """Tracks each online top-up attempt through Square."""
     STATUS_CHOICES = [
         ('pending',   'Pending'),
         ('completed', 'Completed'),
@@ -144,14 +204,12 @@ class SquarePaymentOrder(models.Model):
     ]
     id                     = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     family                 = models.ForeignKey(Family, on_delete=models.PROTECT, related_name='square_orders')
+    branch                 = models.ForeignKey(Branch, on_delete=models.PROTECT, related_name='square_orders', null=True, blank=True)
     
-    # --- CART UPDATES ---
-    product                = models.ForeignKey(Product, on_delete=models.SET_NULL, null=True, blank=True)
-    quantity               = models.PositiveIntegerField(default=1)
-    cart_summary           = models.CharField(max_length=255, blank=True)
-    cart_data              = models.JSONField(default=list, blank=True)
-    # --------------------
-
+    # Cart details replacing the single product FK
+    cart_summary           = models.CharField(max_length=500, blank=True, help_text='e.g. "2× Adult Meal, 1× Kids Meal"')
+    cart_data              = models.JSONField(default=list, blank=True, help_text='List of {name, quantity, unit_price_cents}')
+    
     credits_to_add         = models.DecimalField(max_digits=10, decimal_places=2)
     amount_aud             = models.DecimalField(max_digits=8, decimal_places=2)
     square_order_id        = models.CharField(max_length=200, blank=True)
@@ -165,15 +223,16 @@ class SquarePaymentOrder(models.Model):
         ordering = ['-created_at']
 
     def __str__(self):
-        # Update the string representation to use the new cart summary
         return f"{self.family} — {self.cart_summary} ${self.amount_aud} [{self.status}]"
 
+# ─────────────────────────────────────────────
+#  QR Code Nonce
+# ─────────────────────────────────────────────
 class QRCodeNonce(models.Model):
     id           = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     family       = models.ForeignKey(Family, on_delete=models.PROTECT, related_name='qr_nonces')
+    branch       = models.ForeignKey(Branch, on_delete=models.PROTECT, related_name='qr_nonces', null=True, blank=True)
     credit_units = models.DecimalField(max_digits=10, decimal_places=2)
-    adult_count  = models.PositiveIntegerField(default=0)
-    child_count  = models.PositiveIntegerField(default=0)
     child_ids    = models.JSONField(default=list, blank=True)
     created_at   = models.DateTimeField(default=timezone.now)
     expires_at   = models.DateTimeField()
@@ -191,15 +250,16 @@ class QRCodeNonce(models.Model):
         return not self.used and timezone.now() < self.expires_at
 
     def __str__(self):
-        return f"QR for {self.family} — {self.credit_units} cr ({'used' if self.used else 'valid'})"
+        return f"QR for {self.family} — {self.credit_units} cr"
 
-
+# ─────────────────────────────────────────────
+#  Attendance
+# ─────────────────────────────────────────────
 class AttendanceRecord(models.Model):
     branch       = models.ForeignKey(Branch, on_delete=models.PROTECT, related_name='attendance_records')
     family       = models.ForeignKey(Family, on_delete=models.PROTECT, related_name='attendance_records')
     session_date = models.DateField(default=timezone.localdate, db_index=True)
-    transaction  = models.OneToOneField(Transaction, on_delete=models.PROTECT,
-                                        related_name='attendance_record', null=True, blank=True)
+    transaction  = models.OneToOneField(Transaction, on_delete=models.PROTECT, related_name='attendance_record', null=True, blank=True)
     timestamp    = models.DateTimeField(default=timezone.now)
 
     class Meta:
@@ -207,7 +267,6 @@ class AttendanceRecord(models.Model):
 
     def __str__(self):
         return f"{self.family} @ {self.branch} on {self.session_date}"
-
 
 class AttendanceChild(models.Model):
     record = models.ForeignKey(AttendanceRecord, on_delete=models.CASCADE, related_name='children_present')
