@@ -8,7 +8,8 @@ if env_path.exists():
     load_dotenv(dotenv_path=env_path)
 else:
     print(f"CRITICAL: .env file not found at {env_path}")
-SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')DEBUG = os.environ.get('DEBUG', 'True') == 'True'
+SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
+DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 ALLOWED_HOSTS = ['*']
 
 INSTALLED_APPS = [
