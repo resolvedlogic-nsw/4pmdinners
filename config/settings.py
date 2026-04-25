@@ -1,5 +1,7 @@
 from pathlib import Path
 import os
+from dotenv import load_dotenv
+load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
@@ -71,17 +73,6 @@ SESSION_SAVE_EVERY_REQUEST = True
 
 LOGIN_URL = '/'
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  Square Payment Integration
-#  Replace these two values with your real credentials from
-#  https://developer.squareup.com/apps  →  your app  →  Credentials
-# ─────────────────────────────────────────────────────────────────────────────
-
-# Your Square Access Token (starts with EAAAl... in production, or sandbox token)
-SQUARE_ACCESS_TOKEN = 'ABCDEFGHIJKLMENOPQURSTUVWZYZ'   # ← REPLACE THIS
-
-# Your Square Location ID (found in Square Dashboard → Locations, looks like LxxxxxxxxxxxxxxxxX)
-SQUARE_LOCATION_ID  = 'YOUR_SQUARE_LOCATION_ID_HERE'   # ← REPLACE THIS
-
-# Square environment: 'sandbox' for testing, 'production' for live
-SQUARE_ENVIRONMENT  = 'sandbox'   # ← change to 'production' when ready to go live
+SQUARE_ACCESS_TOKEN = os.environ.get('SQUARE_ACCESS_TOKEN')
+SQUARE_LOCATION_ID  = os.environ.get('SQUARE_LOCATION_ID')
+SQUARE_ENVIRONMENT  = os.environ.get('SQUARE_ENVIRONMENT', 'sandbox')
