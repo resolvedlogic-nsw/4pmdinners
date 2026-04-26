@@ -30,10 +30,20 @@
     <li class="family-item"
         data-surname="{{ pocket.family.surname|lower }}"
         data-name="{{ pocket.family.display_name|lower }}"
-        onclick="window.location='{% url 'branch_kiosk_family_detail' branch.slug pocket.family.id %}'">
-      <span class="surname">{{ pocket.family.surname }}</span>
-      <span class="full-name"> — {{ pocket.family.display_name }}</span>
-      <span class="balance">{{ pocket.balance|floatformat:"-2" }} cr</span>
+        data-contact="{{ pocket.family.primary_contact|lower }}" {# NEW: Data for search #}
+        onclick="window.location='{% url 'branch_kiosk_family_detail' branch.slug pocket.family.id %}'"
+        style="display: flex; justify-content: space-between; align-items: center;">
+      <div>
+        <span class="surname" style="font-weight:700;">{{ pocket.family.surname }}</span>
+        <span class="full-name"> — {{ pocket.family.display_name }}</span>
+        <div class="text-muted" style="font-size: 0.8rem; margin-top: 2px;">
+          📱 {{ pocket.family.primary_contact }} {# NEW: Visual for volunteer #}
+        </div>
+      </div>
+      
+      {% if not is_free_programme %}
+      <span class="balance" style="font-weight:600; color:var(--green-deep);">{{ pocket.balance|floatformat:"-2" }} cr</span>
+      {% endif %}
     </li>
     {% empty %}
     <li style="padding:16px; color:var(--ink-muted);">No families found.</li>
@@ -52,11 +62,12 @@
       <input type="text" id="new-surname" placeholder="e.g. O'Shea" autocomplete="off">
     </div>
     <div class="form-group">
-      <label>Primary Contact Name</label>
-      <input type="text" id="new-contact" placeholder="e.g. Connan" autocomplete="off">
+      <label>Primary Contact (Mobile Number)</label>
+      <p class="text-muted" style="font-size:0.75rem; margin-bottom:4px;">Crucial for family self-service login.</p>
+      <input type="text" id="new-contact" placeholder="e.g. 0412 345 678" autocomplete="off">
     </div>
     <div class="form-group">
-      <label>Display Name (optional)</label>
+      <label>First Name(s)</label>
       <input type="text" id="new-display" placeholder="e.g. O'Shea — Connan & Belinda" autocomplete="off">
     </div>
     <div class="form-group">
@@ -80,7 +91,12 @@ const items = document.querySelectorAll('#family-list .family-item');
 document.getElementById('search-input').addEventListener('input', function() {
   const q = this.value.toLowerCase().trim();
   items.forEach(li => {
-    li.style.display = (!q || li.dataset.surname.includes(q) || li.dataset.name.includes(q)) ? '' : 'none';
+    // UPDATED: Now also checks the 'contact' data attribute
+    const match = !q || 
+                  li.dataset.surname.includes(q) || 
+                  li.dataset.name.includes(q) || 
+                  li.dataset.contact.includes(q);
+    li.style.display = match ? '' : 'none';
   });
 });
 

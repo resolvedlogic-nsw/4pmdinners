@@ -10,25 +10,31 @@
     <h2>Your Church Wallet</h2>
     
     <div class="card pocket-card" style="padding:16px; border:1px solid var(--cream-dark); border-radius:8px; border-left:4px solid var(--green-light);">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-            <div>
-                <h3 style="margin:0; font-size:1.2rem;">{{ pocket.branch.icon }} {{ pocket.branch.name }}</h3>
-                <p style="font-size:1.5rem; font-weight:bold; margin:8px 0 0 0;">{{ pocket.balance|floatformat:"-2" }} cr</p>
-                
-                {% with approx=pocket.get_approx_quantities %}
-                    {% if approx %}
-                        <p style="font-size: 0.85rem; color: #666; margin:4px 0 0 0;">
-                            (Roughly: {{ approx|join:", " }})
-                        </p>
-                    {% else %}
-                        <p style="font-size: 0.85rem; color: #999; margin:4px 0 0 0;">Balance too low for purchases.</p>
-                    {% endif %}
-                {% endwith %}
-            </div>
-            <div>
-                <a href="{% url 'branch_topup_select' pocket.branch.slug %}" class="btn btn-primary btn-sm">Top Up</a>
-            </div>
-        </div>
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div>
+              <h3 style="margin:0; font-size:1.2rem;">{{ pocket.branch.icon }} {{ pocket.branch.name }}</h3>
+              
+              {% if is_free_programme %}
+                  <p style="font-size:2rem; font-weight:bold; color:var(--green-deep); margin:8px 0 0 0;">∞</p>
+                  <p style="font-size: 0.85rem; color: var(--green-mid); margin:0; font-weight:600;">Free Programme</p>
+              {% else %}
+                  <p style="font-size:1.5rem; font-weight:bold; margin:8px 0 0 0;">{{ pocket.balance|floatformat:"-2" }} cr</p>
+                  {% with approx=pocket.get_approx_quantities %}
+                      {% if approx %}
+                          <p style="font-size: 0.85rem; color: #666; margin:4px 0 0 0;">(Roughly: {{ approx|join:", " }})</p>
+                      {% else %}
+                          <p style="font-size: 0.85rem; color: #999; margin:4px 0 0 0;">Balance too low for purchases.</p>
+                      {% endif %}
+                  {% endwith %}
+              {% endif %}
+          </div>
+          
+          {% if not is_free_programme %}
+          <div>
+              <a href="{% url 'branch_topup_select' pocket.branch.slug %}" class="btn btn-primary btn-sm">Top Up</a>
+          </div>
+          {% endif %}
+      </div>
     </div>
 </div>
 

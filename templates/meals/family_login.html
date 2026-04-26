@@ -30,7 +30,14 @@
 
 <div class="animate-in delay-2" style="margin-top:24px; text-align:center;">
   <p style="margin-bottom:8px;">New to {{ branch.name }}?</p>
-  <a href="{% url 'branch_family_register' branch.slug %}" class="btn btn-secondary" style="width:auto; padding:8px 24px;">Create an Account</a>
+  <a href="{% url 'branch_family_register' branch.slug %}" class="btn btn-secondary" style="width:auto; padding:8px 24px; margin-bottom:20px;">Create an Account</a>
+  
+  <div style="border-top: 1px solid var(--cream-dark); padding-top:20px; margin-top:10px;">
+    <p class="text-muted" style="font-size:0.85rem;">
+      Forgotten your PIN? <br>
+      <strong>Please see a volunteer at the Kiosk for assistance.</strong>
+    </p>
+  </div>
 </div>
 
   <div class="card animate-in delay-2" id="step-pin" style="{% if not selected_family_id %}display:none{% endif %}">

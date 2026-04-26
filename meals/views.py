@@ -64,7 +64,7 @@ def families_json(request, branch_slug):
     # Only return families that have interacted with this specific branch
     branch = get_branch_or_404(branch_slug)
     family_ids = FamilyBalance.objects.filter(branch=branch).values_list('family_id', flat=True)
-    families = Family.objects.filter(id__in=family_ids, is_active=True).values('id', 'surname', 'display_name')
+    families = Family.objects.filter(id__in=family_ids, is_active=True).values('id', 'surname', 'display_name', 'primary_contact')
     return JsonResponse({'families': list(families)})
 
 def family_register(request, branch_slug):
