@@ -151,182 +151,196 @@ const branchSlug  = '{{ branch.slug }}';
 const isChildren  = {{ branch.is_children_programme|yesno:"true,false" }};
 const CSRF        = '{{ csrf_token }}';
 
-// ── Top-up hints ────────────────────────────────────────────────────────────
-(function buildHints() {
-  const products = [{% for p in products %}{ name:'{{ p.name }}', topupCr:{{ p.topup_credits }}, bundle:{{ p.topup_bundle }} }{% if not forloop.last %},{% endif %}{% endfor %}];
-  const seen = new Set();
-  const container = document.getElementById('topup-hints');
-  const childCount = {{ children|length|default:0 }};
-
-  function createHint(amount, text) {
-    if (seen.has(amount)) return;
-    seen.add(amount);
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.innerHTML = `💡 <b>${amount} cr</b> = ${text}`;
-    btn.style.cssText = 'background:#fff; border:1px solid #ccc; border-radius:16px; padding:6px 12px; font-size:0.85rem; cursor:pointer;';
-    btn.onclick = () => document.getElementById('topup-amount').value = amount;
-    container.appendChild(btn);
-  }
-
-  products.forEach(p => {
-    // 1. Show the base top-up (for 1 term / 1 child)
-    createHint(p.topupCr, isChildren ? `1 Child` : `${p.bundle}× ${p.name}`);
-
-    // 2. If it's a children's programme, multiply it by the number of kids they have!
-    if (isChildren && childCount > 1) {
-      for (let i = 2; i <= childCount; i++) {
-        const label = (i === childCount) ? `All ${i} Kids` : `${i} Kids`;
-        createHint(p.topupCr * i, label);
-      }
-    }
-  });
-})();
-
-// ── Children's programme ────────────────────────────────────────────────────
-function toggleChild(id) {
-  const cb = document.getElementById('kchild-' + id);
-  cb.checked = !cb.checked;
-  updateChildSummary();
-}
-
-const kProducts = [{% for p in products %}{ id:{{ p.id }}, cost:{{ p.credit_cost }} }{% if not forloop.last %},{% endif %}{% endfor %}];
+// ── Shared Product Data ──────────────────────────────────────────────────────
+const kProducts = [
+    {% for p in products %}
+        { id: {{ p.id }}, cost: {{ p.credit_cost|default:0 }} }{% if not forloop.last %},{% endif %}
+    {% endfor %}
+];
 const isFreeProgramme = isChildren && kProducts.every(p => p.cost === 0);
 
-function updateChildSummary() {
-  const checked = [...document.querySelectorAll('[id^="kchild-"]:checked')];
-  const count   = checked.length;
-  // If free, cost is 0. Otherwise, assume 1 credit per kid (or pull from product).
-  const cost    = isFreeProgramme ? 0 : count; 
-  const after   = balance - cost;
-  
-  document.getElementById('child-deduct-summary').style.display = count > 0 ? '' : 'none';
-  document.getElementById('child-count-kiosk').textContent = count + (count===1?' child':' children');
-  
-  // Infinity/Free UI logic
-  if (isFreeProgramme) {
-      document.getElementById('child-cost-kiosk').textContent = 'Free';
-      document.getElementById('child-after-kiosk').innerHTML = '<span style="font-size:1.4rem;">∞</span>';
-  } else {
-      document.getElementById('child-cost-kiosk').textContent  = cost + ' credit' + (cost!==1?'s':'');
-      document.getElementById('child-after-kiosk').textContent = after + ' credits';
-  }
+// ── Top-up hints ────────────────────────────────────────────────────────────
+(function buildHints() {
+    const products = [{% for p in products %}{ name:'{{ p.name }}', topupCr:{{ p.topup_credits }}, bundle:{{ p.topup_bundle }} }{% if not forloop.last %},{% endif %}{% endfor %}];
+    const seen = new Set();
+    const container = document.getElementById('topup-hints');
+    const childCount = {{ children|length|default:0 }};
 
-  document.getElementById('kiosk-insufficient').style.display = (count>0 && after<0) ? '' : 'none';
-  // Allow checkout if count > 0 AND (it's free OR they have balance)
-  document.getElementById('deduct-btn').disabled = count===0 || (after<0 && !isFreeProgramme);
+    function createHint(amount, text) {
+        if (seen.has(amount)) return;
+        seen.add(amount);
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.innerHTML = `💡 <b>${amount} cr</b> = ${text}`;
+        btn.style.cssText = 'background:#fff; border:1px solid #ccc; border-radius:16px; padding:6px 12px; font-size:0.85rem; cursor:pointer;';
+        btn.onclick = () => document.getElementById('topup-amount').value = amount;
+        container.appendChild(btn);
+    }
+
+    products.forEach(p => {
+        createHint(p.topupCr, isChildren ? `1 Child` : `${p.bundle}× ${p.name}`);
+        if (isChildren && childCount > 1) {
+            for (let i = 2; i <= childCount; i++) {
+                const label = (i === childCount) ? `All ${i} Kids` : `${i} Kids`;
+                createHint(p.topupCr * i, label);
+            }
+        }
+    });
+})();
+
+// ── Children's programme Logic ──────────────────────────────────────────────
+function toggleChild(id) {
+    const cb = document.getElementById('kchild-' + id);
+    if (cb) {
+        cb.checked = !cb.checked;
+        updateChildSummary();
+    }
 }
 
-// ── Counter-based ────────────────────────────────────────────────────────────
-const kProducts = [{% for p in products %}{ id:{{ p.id }}, cost:{{ p.credit_cost }} }{% if not forloop.last %},{% endif %}{% endfor %}];
+function updateChildSummary() {
+    const checked = [...document.querySelectorAll('[id^="kchild-"]:checked')];
+    const count   = checked.length;
+    const cost    = isFreeProgramme ? 0 : count; 
+    const after   = balance - cost;
+    
+    document.getElementById('child-deduct-summary').style.display = count > 0 ? '' : 'none';
+    document.getElementById('child-count-kiosk').textContent = count + (count===1?' child':' children');
+    
+    if (isFreeProgramme) {
+        document.getElementById('child-cost-kiosk').textContent = 'Free';
+        document.getElementById('child-after-kiosk').innerHTML = '<span style="font-size:1.4rem;">∞</span>';
+    } else {
+        document.getElementById('child-cost-kiosk').textContent  = cost + ' credit' + (cost!==1?'s':'');
+        document.getElementById('child-after-kiosk').textContent = after + ' credits';
+    }
+
+    document.getElementById('kiosk-insufficient').style.display = (count>0 && after<0) ? '' : 'none';
+    document.getElementById('deduct-btn').disabled = count===0 || (after<0 && !isFreeProgramme);
+}
+
+// ── Counter-based Logic (Dinners/Coffee) ────────────────────────────────────
 const kQtys = {};
 kProducts.forEach(p => kQtys[p.id] = 0);
 
 function kAdjust(productId, delta) {
-  kQtys[productId] = Math.max(0, kQtys[productId] + delta);
-  document.getElementById('kval-' + productId).textContent = kQtys[productId];
-  document.getElementById('kdec-' + productId).disabled = kQtys[productId] === 0;
-  kRender();
+    const display = document.getElementById('kval-' + productId);
+    let val = kQtys[productId] + delta;
+    if (val < 0) val = 0;
+    
+    kQtys[productId] = val;
+    display.textContent = val;
+    
+    const decBtn = document.getElementById('kdec-' + productId);
+    if (decBtn) decBtn.disabled = (val === 0);
+    kRender();
 }
+
 function kRender() {
-  let total = 0;
-  kProducts.forEach(p => total += kQtys[p.id] * p.cost);
-  const after = balance - total;
-  kProducts.forEach(p => {
-    const used = total - kQtys[p.id] * p.cost;
-    document.getElementById('kinc-' + p.id).disabled = kQtys[p.id] >= (p.cost>0 ? Math.floor((balance-used)/p.cost) : 99);
-  });
-  document.getElementById('deduct-summary').style.display = total > 0 ? '' : 'none';
-  document.getElementById('kiosk-total').textContent = total + ' credit' + (total!==1?'s':'');
-  document.getElementById('kiosk-after').textContent = after + ' credits';
-  document.getElementById('kiosk-insufficient').style.display = (total>0 && after<0) ? '' : 'none';
-  document.getElementById('deduct-btn').disabled = total===0 || after<0;
+    let total = 0;
+    kProducts.forEach(p => total += kQtys[p.id] * p.cost);
+    const after = balance - total;
+    
+    kProducts.forEach(p => {
+        const used = total - kQtys[p.id] * p.cost;
+        const incBtn = document.getElementById('kinc-' + p.id);
+        if (incBtn) {
+            incBtn.disabled = kQtys[p.id] >= (p.cost > 0 ? Math.floor((balance - used) / p.cost) : 99);
+        }
+    });
+    
+    document.getElementById('deduct-summary').style.display = total > 0 ? '' : 'none';
+    document.getElementById('kiosk-total').textContent = total + ' credit' + (total!==1?'s':'');
+    document.getElementById('kiosk-after').textContent = after + ' credits';
+    document.getElementById('kiosk-insufficient').style.display = (total>0 && after<0) ? '' : 'none';
+    document.getElementById('deduct-btn').disabled = total===0 || after<0;
 }
 
 // ── Confirm / Deduct ─────────────────────────────────────────────────────────
 function confirmDeduct() {
-  let body, payload;
-  const notesText = document.getElementById('kiosk-notes').value.trim(); // NEW
+    let body, payload;
+    const notesText = document.getElementById('kiosk-notes').value.trim();
 
-  if (isChildren) {
-    const checked = [...document.querySelectorAll('[id^="kchild-"]:checked')];
-    const ids     = checked.map(cb => parseInt(cb.id.replace('kchild-','')));
-    body    = `Check in ${ids.length} child${ids.length!==1?'ren':''} for {{ family.display_name }}?`;
-    payload = { family_id: familyId, child_ids: ids, notes: notesText }; // NEW: passing notes
-  } else {
-    let total = 0;
-    kProducts.forEach(p => total += kQtys[p.id] * p.cost);
-    body    = `Deduct ${total} credit${total!==1?'s':''} from {{ family.display_name }}?`;
-    payload = { family_id: familyId };
-    kProducts.forEach(p => payload[`qty_${p.id}`] = kQtys[p.id]);
-  }
-  document.getElementById('confirm-title').textContent = 'Confirm deduction?';
-  document.getElementById('confirm-body').textContent  = body;
-  document.getElementById('confirm-ok').onclick = () => doDeduct(payload);
-  document.getElementById('confirm-overlay').classList.add('show');
+    if (isChildren) {
+        const checked = [...document.querySelectorAll('[id^="kchild-"]:checked')];
+        const ids     = checked.map(cb => parseInt(cb.id.replace('kchild-','')));
+        body    = `Check in ${ids.length} child${ids.length!==1?'ren':''} for {{ family.display_name }}?`;
+        payload = { family_id: familyId, child_ids: ids, notes: notesText };
+    } else {
+        let total = 0;
+        kProducts.forEach(p => total += kQtys[p.id] * p.cost);
+        body    = `Deduct ${total} credit${total!==1?'s':''} from {{ family.display_name }}?`;
+        payload = { family_id: familyId, notes: notesText };
+        kProducts.forEach(p => payload[`qty_${p.id}`] = kQtys[p.id]);
+    }
+    document.getElementById('confirm-title').textContent = 'Confirm deduction?';
+    document.getElementById('confirm-body').textContent  = body;
+    document.getElementById('confirm-ok').onclick = () => doDeduct(payload);
+    document.getElementById('confirm-overlay').classList.add('show');
 }
 
 function dismissConfirm() { document.getElementById('confirm-overlay').classList.remove('show'); }
 
 async function doDeduct(payload) {
-  document.getElementById('confirm-ok').disabled = true;
-  document.getElementById('confirm-ok').textContent = 'Processing…';
-  try {
-    const res  = await fetch(`/${branchSlug}/api/kiosk/deduct/`, {
-      method: 'POST',
-      headers: {'Content-Type':'application/json','X-CSRFToken':CSRF},
-      body: JSON.stringify(payload)
-    });
-    const data = await res.json();
-    dismissConfirm();
-    showResult(data.success,
-      data.success ? '✅' : '❌',
-      data.success ? 'Done!' : 'Failed',
-      data.success ? `${data.credits_deducted} credits deducted. New balance: ${data.new_balance}.` : (data.error || 'Something went wrong.')
-    );
-  } catch(e) { dismissConfirm(); alert('Network error.'); }
-  document.getElementById('confirm-ok').disabled = false;
-  document.getElementById('confirm-ok').textContent = 'Confirm';
+    const okBtn = document.getElementById('confirm-ok');
+    okBtn.disabled = true;
+    okBtn.textContent = 'Processing…';
+    try {
+        const res  = await fetch(`/${branchSlug}/api/kiosk/deduct/`, {
+            method: 'POST',
+            headers: {'Content-Type':'application/json','X-CSRFToken':CSRF},
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        dismissConfirm();
+        showResult(data.success,
+            data.success ? '✅' : '❌',
+            data.success ? 'Done!' : 'Failed',
+            data.success ? `${data.credits_deducted} credits deducted. New balance: ${data.new_balance}.` : (data.error || 'Something went wrong.')
+        );
+    } catch(e) { dismissConfirm(); alert('Network error.'); }
+    okBtn.disabled = false;
+    okBtn.textContent = 'Confirm';
 }
 
 // ── Top-up ────────────────────────────────────────────────────────────────────
 function confirmTopUp() {
-  const amount = parseFloat(document.getElementById('topup-amount').value);
-  if (!amount || amount <= 0) { alert('Enter a valid credit amount.'); return; }
-  document.getElementById('confirm-title').textContent = 'Confirm top up?';
-  document.getElementById('confirm-body').textContent  = `Add ${amount} credits to {{ family.display_name }}?`;
-  document.getElementById('confirm-ok').onclick = () => doTopUp(amount);
-  document.getElementById('confirm-overlay').classList.add('show');
+    const amount = parseFloat(document.getElementById('topup-amount').value);
+    if (!amount || amount <= 0) { alert('Enter a valid credit amount.'); return; }
+    document.getElementById('confirm-title').textContent = 'Confirm top up?';
+    document.getElementById('confirm-body').textContent  = `Add ${amount} credits to {{ family.display_name }}?`;
+    document.getElementById('confirm-ok').onclick = () => doTopUp(amount);
+    document.getElementById('confirm-overlay').classList.add('show');
 }
 
 async function doTopUp(amount) {
-  document.getElementById('confirm-ok').disabled = true;
-  document.getElementById('confirm-ok').textContent = 'Processing…';
-  try {
-    const res  = await fetch(`/${branchSlug}/api/kiosk/topup/`, {
-      method: 'POST',
-      headers: {'Content-Type':'application/json','X-CSRFToken':CSRF},
-      body: JSON.stringify({ family_id: familyId, amount })
-    });
-    const data = await res.json();
-    dismissConfirm();
-    showResult(data.success,
-      data.success ? '✅' : '❌',
-      data.success ? 'Top Up Complete!' : 'Failed',
-      data.success ? `${amount} credits added. New balance: ${data.new_balance}.` : (data.error||'Error.')
-    );
-    if (data.success) document.getElementById('live-balance').textContent = data.new_balance;
-  } catch(e) { dismissConfirm(); alert('Network error.'); }
-  document.getElementById('confirm-ok').disabled = false;
-  document.getElementById('confirm-ok').textContent = 'Confirm';
+    const okBtn = document.getElementById('confirm-ok');
+    okBtn.disabled = true;
+    okBtn.textContent = 'Processing…';
+    try {
+        const res  = await fetch(`/${branchSlug}/api/kiosk/topup/`, {
+            method: 'POST',
+            headers: {'Content-Type':'application/json','X-CSRFToken':CSRF},
+            body: JSON.stringify({ family_id: familyId, amount: amount })
+        });
+        const data = await res.json();
+        dismissConfirm();
+        showResult(data.success,
+            data.success ? '✅' : '❌',
+            data.success ? 'Top Up Complete!' : 'Failed',
+            data.success ? `${amount} credits added. New balance: ${data.new_balance}.` : (data.error||'Error.')
+        );
+        if (data.success) document.getElementById('live-balance').textContent = data.new_balance;
+    } catch(e) { dismissConfirm(); alert('Network error.'); }
+    okBtn.disabled = false;
+    okBtn.textContent = 'Confirm';
 }
 
 function showResult(success, icon, title, body) {
-  document.getElementById('result-icon').textContent  = icon;
-  document.getElementById('result-title').textContent = title;
-  document.getElementById('result-title').style.color = success ? 'var(--success)' : 'var(--danger)';
-  document.getElementById('result-body').textContent  = body;
-  document.getElementById('result-overlay').classList.add('show');
+    document.getElementById('result-icon').textContent  = icon;
+    document.getElementById('result-title').textContent = title;
+    document.getElementById('result-title').style.color = success ? 'var(--success)' : 'var(--danger)';
+    document.getElementById('result-body').textContent  = body;
+    document.getElementById('result-overlay').classList.add('show');
 }
 </script>
 {% endblock %}
