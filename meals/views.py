@@ -67,6 +67,47 @@ def families_json(request, branch_slug):
     families = Family.objects.filter(id__in=family_ids, is_active=True).values('id', 'surname', 'display_name')
     return JsonResponse({'families': list(families)})
 
+def family_register(request, branch_slug):
+    branch = get_branch_or_404(branch_slug)
+    ctx = branch_ctx(branch)
+    ctx['error'] = None
+
+    if request.method == 'POST':
+        surname = request.POST.get('surname', '').strip()
+        contact = request.POST.get('primary_contact', '').strip()
+        pin = request.POST.get('pin', '')
+        confirm_pin = request.POST.get('confirm_pin', '')
+
+        if not surname or not contact or not pin:
+            ctx['error'] = 'Please fill out all fields.'
+        elif len(pin) < 4:
+            ctx['error'] = 'PIN must be at least 4 digits.'
+        elif pin != confirm_pin:
+            ctx['error'] = 'PINs do not match.'
+        elif Family.objects.filter(primary_contact__iexact=contact).exists():
+            ctx['error'] = 'An account with this mobile number/email already exists. Please log in.'
+        else:
+            # Create the family
+            display = f"{surname} Family"
+            family = Family.objects.create(
+                surname=surname, 
+                primary_contact=contact, 
+                display_name=display, 
+                pin_hash=hash_pin(pin)
+            )
+            
+            # Log them in securely for 6 months
+            request.session['family_id']   = family.id
+            request.session['branch_slug'] = branch_slug
+            request.session.set_expiry(15552000)
+            
+            messages.success(request, 'Account created! Please add your children below.')
+            return redirect('branch_family_manage_children', branch_slug=branch_slug)
+            
+        ctx.update({'surname': surname, 'primary_contact': contact})
+
+    return render(request, 'meals/family_register.html', ctx)
+
 def family_login(request, branch_slug):
     branch = get_branch_or_404(branch_slug)
     ctx = branch_ctx(branch)

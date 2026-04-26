@@ -6,32 +6,32 @@
   <p>Type your surname to search, then enter your PIN.</p>
 </div>
 
-<form method="post" action="{% url 'branch_family_login' branch.slug %}" id="login-form">
+<form method="post" class="animate-in delay-1">
   {% csrf_token %}
-  <input type="hidden" name="family_id" id="family-id-input" value="{{ selected_family_id }}">
-
+  
   {% if error %}
-    <div class="alert alert-danger animate-in">✕ {{ error }}</div>
+    <div class="alert alert-danger">{{ error }}</div>
   {% endif %}
 
-  <div class="card animate-in delay-1" id="step-family">
-    <div class="form-group mb-0">
-      <label for="search-input">Search surname</label>
-      <div class="search-wrap">
-        <span class="search-icon">🔍</span>
-        <input type="text" id="search-input" placeholder="e.g. O'Shea" autocomplete="off" autocorrect="off" spellcheck="false">
-      </div>
-    </div>
-    <div id="family-list-wrap" style="margin-top:12px; max-height:300px; overflow-y:auto; border:1.5px solid #eee; border-radius:var(--radius-sm); display:none;">
-      <ul class="family-list" id="family-list"></ul>
-    </div>
-    <div id="selected-display" style="display:none; margin-top:12px;">
-      <div class="alert alert-info mb-0" style="justify-content:space-between; align-items:center;">
-        <span>✓ <strong id="selected-name">{{ selected_family_name }}</strong></span>
-        <button type="button" onclick="clearSelection()" style="background:none;border:none;cursor:pointer;color:var(--green-deep);font-size:1.1rem;">✕</button>
-      </div>
-    </div>
+  <div class="form-group">
+    <label for="primary_contact">Mobile Number (or Email)</label>
+    <input type="text" id="primary_contact" name="primary_contact" value="{{ attempted_contact }}" required placeholder="e.g. 0412 345 678" style="background:#fff;">
   </div>
+
+  <div class="form-group" style="margin-top:16px;">
+    <label for="pin">4-Digit PIN</label>
+    <input type="password" id="pin" name="pin" required pattern="[0-9]*" inputmode="numeric" style="letter-spacing:0.5em; font-size:1.5rem; text-align:center; background:#fff;">
+  </div>
+
+  <button type="submit" class="btn btn-primary" style="margin-top:24px; padding:16px; font-size:1.1rem;">
+    Secure Login
+  </button>
+</form>
+
+<div class="animate-in delay-2" style="margin-top:24px; text-align:center;">
+  <p style="margin-bottom:8px;">New to {{ branch.name }}?</p>
+  <a href="{% url 'branch_family_register' branch.slug %}" class="btn btn-secondary" style="width:auto; padding:8px 24px;">Create an Account</a>
+</div>
 
   <div class="card animate-in delay-2" id="step-pin" style="{% if not selected_family_id %}display:none{% endif %}">
     <div class="form-group mb-0">

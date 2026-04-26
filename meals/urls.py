@@ -18,6 +18,7 @@ urlpatterns = [
     path('<slug:branch_slug>/', views.branch_index, name='branch_index'),
     path('<slug:branch_slug>/login/', views.family_login, name='branch_family_login'),
     path('<slug:branch_slug>/logout/', views.family_logout, name='branch_family_logout'),
+    path('<slug:branch_slug>/register/', views.family_register, name='branch_family_register'),
     path('<slug:branch_slug>/recover/', views.family_recover_pin, name='branch_recover_pin'),
     path('<slug:branch_slug>/families/json/', views.families_json, name='branch_families_json'),
     path('<slug:branch_slug>/summary/', views.user_summary, name='branch_user_summary'),
