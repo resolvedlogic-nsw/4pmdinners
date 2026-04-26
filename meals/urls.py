@@ -43,6 +43,7 @@ urlpatterns = [
     path('<slug:branch_slug>/kiosk/family/<int:family_id>/', views.kiosk_family_detail, name='branch_kiosk_family_detail'),
     path('<slug:branch_slug>/kiosk/family/<int:family_id>/children/', views.kiosk_manage_children, name='branch_kiosk_manage_children'),
     path('<slug:branch_slug>/kiosk/bulk/', views.kiosk_bulk_checkin, name='branch_kiosk_bulk_checkin'),
+    path('<slug:branch_slug>/kiosk/attendance/', views.kiosk_view_attendance, name='branch_kiosk_view_attendance'),
     path('<slug:branch_slug>/kiosk/export/attendance/', views.kiosk_export_attendance, name='branch_kiosk_export_attendance'),
     path('<slug:branch_slug>/kiosk/export/roster/', views.kiosk_export_roster, name='branch_kiosk_export_roster'),
     path('<slug:branch_slug>/kiosk/export/transactions/', views.kiosk_export_transactions, name='branch_kiosk_export_transactions'),

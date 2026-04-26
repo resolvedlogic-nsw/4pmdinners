@@ -632,6 +632,28 @@ def kiosk_bulk_checkin(request, branch_slug):
     ctx['children'] = children
     return render(request, 'meals/kiosk_bulk_checkin.html', ctx)
 
+@require_kiosk_session
+def kiosk_view_attendance(request, branch_slug):
+    branch = get_branch_or_404(branch_slug)
+    date_str = request.GET.get('date', str(timezone.localdate()))
+    
+    try:
+        session_date = date.fromisoformat(date_str)
+    except ValueError:
+        session_date = timezone.localdate()
+
+    # Fetch records and prefetch the children to avoid N+1 database queries
+    records = AttendanceRecord.objects.filter(
+        branch=branch, session_date=session_date
+    ).select_related('family').prefetch_related('children_present__child').order_by('-timestamp')
+
+    ctx = branch_ctx(branch)
+    ctx.update({
+        'session_date': session_date,
+        'records': records,
+    })
+    return render(request, 'meals/kiosk_view_attendance.html', ctx)
+
 # ─────────────────────────────────────────────────────────────────────────────
 #  Kiosk Exports
 # ─────────────────────────────────────────────────────────────────────────────

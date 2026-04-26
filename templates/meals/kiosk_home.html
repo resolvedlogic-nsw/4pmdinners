@@ -23,8 +23,12 @@
 {% if branch.is_children_programme %}
   <div style="border-top:1px solid var(--cream-dark); padding-top:16px; display:flex; flex-direction:column; gap:10px;">
     
-    <a href="{% url 'branch_kiosk_bulk_checkin' branch.slug %}" class="btn btn-primary" style="font-size:1.1rem; padding:16px; margin-bottom:8px; background:var(--green-deep);">
+    <a href="{% url 'branch_kiosk_bulk_checkin' branch.slug %}" class="btn btn-primary" style="font-size:1.1rem; padding:16px; background:var(--green-deep);">
       📋 Teacher Bulk Check-in
+    </a>
+    
+    <a href="{% url 'branch_kiosk_view_attendance' branch.slug %}?date={% now 'Y-m-d' %}" class="btn btn-secondary" style="font-size:1.1rem; padding:16px; margin-bottom:8px;">
+      👀 View Live Attendance
     </a>
 
     <p class="text-muted mb-0" style="font-size:0.85rem; font-weight:600; text-transform:uppercase; letter-spacing:.05em;">Attendance Exports</p>
