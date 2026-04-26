@@ -64,7 +64,12 @@
 
   <div class="alert alert-warning" id="kiosk-insufficient" style="display:none; margin-top:12px;">⚠ Insufficient credits.</div>
 
-  <button class="btn btn-danger" id="deduct-btn" style="margin-top:16px;" disabled onclick="confirmDeduct()">
+  <div class="form-group" style="margin-top:16px;">
+    <label for="kiosk-notes">Check-in Notes (Optional)</label>
+    <input type="text" id="kiosk-notes" placeholder="e.g. Guest parent: John. Or 'Timmy needs a hat.'">
+  </div>
+
+  <button class="btn btn-danger" id="deduct-btn" style="margin-top:8px;" disabled onclick="confirmDeduct()">
     ✓ Confirm Deduction
   </button>
 </div>
@@ -184,17 +189,32 @@ function toggleChild(id) {
   cb.checked = !cb.checked;
   updateChildSummary();
 }
+
+const kProducts = [{% for p in products %}{ id:{{ p.id }}, cost:{{ p.credit_cost }} }{% if not forloop.last %},{% endif %}{% endfor %}];
+const isFreeProgramme = isChildren && kProducts.every(p => p.cost === 0);
+
 function updateChildSummary() {
   const checked = [...document.querySelectorAll('[id^="kchild-"]:checked')];
   const count   = checked.length;
-  const cost    = count;
+  // If free, cost is 0. Otherwise, assume 1 credit per kid (or pull from product).
+  const cost    = isFreeProgramme ? 0 : count; 
   const after   = balance - cost;
+  
   document.getElementById('child-deduct-summary').style.display = count > 0 ? '' : 'none';
   document.getElementById('child-count-kiosk').textContent = count + (count===1?' child':' children');
-  document.getElementById('child-cost-kiosk').textContent  = cost + ' credit' + (cost!==1?'s':'');
-  document.getElementById('child-after-kiosk').textContent = after + ' credits';
+  
+  // Infinity/Free UI logic
+  if (isFreeProgramme) {
+      document.getElementById('child-cost-kiosk').textContent = 'Free';
+      document.getElementById('child-after-kiosk').innerHTML = '<span style="font-size:1.4rem;">∞</span>';
+  } else {
+      document.getElementById('child-cost-kiosk').textContent  = cost + ' credit' + (cost!==1?'s':'');
+      document.getElementById('child-after-kiosk').textContent = after + ' credits';
+  }
+
   document.getElementById('kiosk-insufficient').style.display = (count>0 && after<0) ? '' : 'none';
-  document.getElementById('deduct-btn').disabled = count===0 || after<0;
+  // Allow checkout if count > 0 AND (it's free OR they have balance)
+  document.getElementById('deduct-btn').disabled = count===0 || (after<0 && !isFreeProgramme);
 }
 
 // ── Counter-based ────────────────────────────────────────────────────────────
@@ -226,11 +246,13 @@ function kRender() {
 // ── Confirm / Deduct ─────────────────────────────────────────────────────────
 function confirmDeduct() {
   let body, payload;
+  const notesText = document.getElementById('kiosk-notes').value.trim(); // NEW
+
   if (isChildren) {
     const checked = [...document.querySelectorAll('[id^="kchild-"]:checked')];
     const ids     = checked.map(cb => parseInt(cb.id.replace('kchild-','')));
     body    = `Check in ${ids.length} child${ids.length!==1?'ren':''} for {{ family.display_name }}?`;
-    payload = { family_id: familyId, child_ids: ids };
+    payload = { family_id: familyId, child_ids: ids, notes: notesText }; // NEW: passing notes
   } else {
     let total = 0;
     kProducts.forEach(p => total += kQtys[p.id] * p.cost);

@@ -175,6 +175,70 @@ def change_pin(request, branch_slug):
             return redirect('branch_user_summary', branch_slug=branch_slug)
     return render(request, 'meals/change_pin.html', ctx)
 
+@require_family_session
+def family_manage_children(request, branch_slug):
+    branch = get_branch_or_404(branch_slug)
+    family = get_object_or_404(Family, id=request.session['family_id'], is_active=True)
+    available_programmes = Branch.objects.filter(is_children_programme=True, is_active=True).order_by('order')
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        
+        if action == 'add':
+            first = request.POST.get('first_name', '').strip()
+            last = request.POST.get('last_name', '').strip()
+            dob_str = request.POST.get('date_of_birth', '')
+            prog_ids = request.POST.getlist('prog_ids')
+
+            if first:
+                dob = None
+                if dob_str:
+                    try:
+                        dob = date.fromisoformat(dob_str)
+                    except ValueError:
+                        pass
+                child = Child.objects.create(family=family, first_name=first, last_name=last, date_of_birth=dob)
+                if prog_ids:
+                    child.enrolled_branches.set(Branch.objects.filter(id__in=prog_ids))
+                messages.success(request, f'{child.first_name} added successfully.')
+
+        elif action == 'edit':
+            child_id = request.POST.get('child_id')
+            child = get_object_or_404(Child, id=child_id, family=family)
+            child.first_name = request.POST.get('first_name', '').strip() or child.first_name
+            child.last_name = request.POST.get('last_name', '').strip()
+            dob_str = request.POST.get('date_of_birth', '')
+            
+            if dob_str:
+                try:
+                    child.date_of_birth = date.fromisoformat(dob_str)
+                except ValueError:
+                    pass
+            else:
+                child.date_of_birth = None
+            child.save()
+            
+            prog_ids = request.POST.getlist('prog_ids')
+            child.enrolled_branches.set(Branch.objects.filter(id__in=prog_ids))
+            messages.success(request, f'{child.first_name} updated.')
+
+        elif action == 'delete':
+            child_id = request.POST.get('child_id')
+            child = get_object_or_404(Child, id=child_id, family=family)
+            child.is_active = False
+            child.save()
+            messages.success(request, f'{child.first_name} removed.')
+
+        return redirect('branch_family_manage_children', branch_slug=branch_slug)
+
+    ctx = branch_ctx(branch)
+    ctx.update({
+        'family': family,
+        'children': family.children.filter(is_active=True).prefetch_related('enrolled_branches'),
+        'available_programmes': available_programmes
+    })
+    return render(request, 'meals/family_manage_children.html', ctx)
+
 # ─────────────────────────────────────────────────────────────────────────────
 #  Family Summary & QR Flow
 # ─────────────────────────────────────────────────────────────────────────────
@@ -513,8 +577,60 @@ def kiosk_manage_children(request, branch_slug, family_id):
     branch = get_branch_or_404(branch_slug)
     family = get_object_or_404(Family, id=family_id, is_active=True)
     ctx    = branch_ctx(branch)
-    ctx.update({'family': family, 'children': family.children.all()})
+    ctx.update({
+        'family': family, 
+        'children': family.children.prefetch_related('enrolled_branches').all(),
+        'available_programmes': Branch.objects.filter(is_children_programme=True, is_active=True).order_by('order')
+    })
     return render(request, 'meals/kiosk_manage_children.html', ctx)
+
+@require_kiosk_session
+def kiosk_bulk_checkin(request, branch_slug):
+    branch = get_branch_or_404(branch_slug)
+    
+    # Get all kids explicitly enrolled in THIS branch
+    children = Child.objects.filter(enrolled_branches=branch, is_active=True).select_related('family').order_by('family__surname', 'first_name')
+
+    if request.method == 'POST':
+        child_ids = [int(x) for x in request.POST.getlist('child_ids') if x.isdigit()]
+        notes = request.POST.get('notes', '').strip()
+
+        if child_ids:
+            # Group by family so siblings are on the same attendance record
+            selected_children = Child.objects.filter(id__in=child_ids).select_related('family')
+            family_groups = {}
+            for child in selected_children:
+                family_groups.setdefault(child.family, []).append(child)
+
+            for family, kids in family_groups.items():
+                record = AttendanceRecord.objects.create(
+                    branch=branch, family=family, session_date=timezone.localdate(),
+                    transaction=None, notes=notes
+                )
+                for child in kids:
+                    AttendanceChild.objects.create(record=record, child=child)
+
+            messages.success(request, f'Successfully checked in {len(child_ids)} children.')
+            
+        elif notes:
+            # The "Guest Dilemma" Fix: If they only typed notes, assign it to a generic Guest family
+            guest_family, _ = Family.objects.get_or_create(
+                surname=" Guest", defaults={'primary_contact': 'Visitor', 'display_name': 'Guest / Visitor', 'pin_hash': hash_pin('0000')}
+            )
+            AttendanceRecord.objects.create(
+                branch=branch, family=guest_family, session_date=timezone.localdate(),
+                transaction=None, notes=notes
+            )
+            messages.success(request, 'Guest notes saved successfully.')
+            
+        else:
+            messages.error(request, 'No children selected and no notes entered.')
+            
+        return redirect('branch_kiosk_home', branch_slug=branch_slug)
+
+    ctx = branch_ctx(branch)
+    ctx['children'] = children
+    return render(request, 'meals/kiosk_bulk_checkin.html', ctx)
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  Kiosk Exports
@@ -666,6 +782,24 @@ def api_kiosk_deduct(request, branch_slug):
             qty = int(data.get(f'qty_{product.id}', 0))
             total_cost += product.credit_cost * qty
 
+notes_input = data.get('notes', '').strip()
+
+    # THE BYPASS: Free Sunday School route
+    if branch.is_children_programme and total_cost == 0:
+        if not child_ids:
+            return JsonResponse({'success': False, 'error': 'No children selected.'})
+            
+        record = AttendanceRecord.objects.create(
+            branch=branch, family=family, session_date=timezone.localdate(), 
+            transaction=None, notes=notes_input # <--- Notes saved here!
+        )
+        children = Child.objects.filter(id__in=child_ids, family=family)
+        for child in children:
+            AttendanceChild.objects.create(record=record, child=child)
+            
+        return JsonResponse({'success': True, 'family_name': family.display_name, 'credits_deducted': 0, 'new_balance': float(pocket.balance)})
+
+    # THE STANDARD: Paid Dinners/Coffee route
     if total_cost <= 0:
         return JsonResponse({'success': False, 'error': 'Nothing to deduct.'})
     if pocket.balance < total_cost:
@@ -674,10 +808,10 @@ def api_kiosk_deduct(request, branch_slug):
     pocket.balance -= total_cost
     pocket.save(update_fields=['balance'])
 
-    txn = Transaction.objects.create(family=family, branch=branch, credit_delta=-total_cost, reason='manual_kiosk', performed_by='kiosk_volunteer', notes=data.get('notes', ''))
+    txn = Transaction.objects.create(family=family, branch=branch, credit_delta=-total_cost, reason='manual_kiosk', performed_by='kiosk_volunteer', notes=notes_input)
 
     if branch.is_children_programme and child_ids:
-        record   = AttendanceRecord.objects.create(branch=branch, family=family, session_date=timezone.localdate(), transaction=txn)
+        record = AttendanceRecord.objects.create(branch=branch, family=family, session_date=timezone.localdate(), transaction=txn, notes=notes_input)
         children = Child.objects.filter(id__in=child_ids, family=family)
         for child in children:
             AttendanceChild.objects.create(record=record, child=child)
@@ -749,7 +883,16 @@ def api_kiosk_add_child(request, branch_slug):
             dob = date.fromisoformat(dob_str)
         except ValueError:
             pass
+            
+    # NEW: Grab the branch IDs from the request
+    branch_ids = data.get('branch_ids', [])
+    
     child = Child.objects.create(family=family, first_name=first, last_name=last, date_of_birth=dob)
+    
+    # NEW: Link the child to the selected programmes
+    if branch_ids:
+        child.enrolled_branches.set(Branch.objects.filter(id__in=branch_ids))
+        
     return JsonResponse({'success': True, 'child_id': child.id, 'full_name': child.full_name})
 
 @require_POST

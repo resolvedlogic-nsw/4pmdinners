@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% block title %}Manage Children — {{ branch.name }}{% endblock %}
+{% block header_nav %}
+  <a href="{% url 'branch_user_summary' branch.slug %}" class="nav-link">← Back</a>
+{% endblock %}
+
+{% block content %}
+<div class="animate-in" style="margin-bottom:16px;">
+  <p class="text-muted" style="font-size:0.85rem; text-transform:uppercase; letter-spacing:.06em; font-weight:600; margin-bottom:4px;">Family Settings</p>
+  <h1 style="margin-bottom:4px;">Manage Children</h1>
+  <p>Update details and enrol children in programmes.</p>
+</div>
+
+<div class="card animate-in delay-1" style="padding:0;">
+  <div style="padding:16px 20px; border-bottom:1px solid var(--cream-dark); display:flex; justify-content:space-between; align-items:center;">
+    <h3 style="margin:0;">Registered Children</h3>
+    <button class="btn btn-primary btn-sm" onclick="showOverlay('add')" style="width:auto;">+ Add Child</button>
+  </div>
+
+  <ul class="family-list">
+    {% for child in children %}
+    <li class="family-item" style="padding:16px 20px; cursor:default;">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+        <div>
+          <div style="font-weight:700; font-size:1.1rem; color:var(--green-deep);">{{ child.full_name }}</div>
+          {% if child.date_of_birth %}
+            <div class="text-muted" style="font-size:0.85rem;">DOB: {{ child.date_of_birth|date:"d M Y" }}</div>
+          {% endif %}
+          
+          <div style="margin-top:8px; display:flex; gap:6px; flex-wrap:wrap;">
+            {% for prog in child.enrolled_branches.all %}
+              <span style="background:var(--green-pale); color:var(--green-deep); font-size:0.75rem; padding:2px 8px; border-radius:12px; font-weight:600;">
+                {{ prog.icon }} {{ prog.name }}
+              </span>
+            {% empty %}
+              <span style="background:var(--cream-dark); color:var(--ink-muted); font-size:0.75rem; padding:2px 8px; border-radius:12px;">Not enrolled in any programmes</span>
+            {% endfor %}
+          </div>
+        </div>
+        
+        <button class="btn btn-secondary btn-sm" onclick="editChild({{ child.id }}, '{{ child.first_name|escapejs }}', '{{ child.last_name|escapejs }}', '{{ child.date_of_birth|date:'Y-m-d'|default:'' }}', [{% for p in child.enrolled_branches.all %}{{ p.id }}{% if not forloop.last %},{% endif %}{% endfor %}])" style="width:auto; min-height:32px; padding:4px 12px;">Edit</button>
+      </div>
+    </li>
+    {% empty %}
+    <li style="padding:24px; text-align:center; color:var(--ink-muted);">
+      No children added yet.
+    </li>
+    {% endfor %}
+  </ul>
+</div>
+
+<div class="overlay" id="child-overlay">
+  <div class="overlay-card" style="text-align:left;">
+    <h2 id="modal-title" style="margin-bottom:4px;">Add Child</h2>
+    
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="action" id="form-action" value="add">
+      <input type="hidden" name="child_id" id="form-child-id" value="">
+
+      <div class="form-group">
+        <label>First Name</label>
+        <input type="text" name="first_name" id="modal-first" required>
+      </div>
+      <div class="form-group">
+        <label>Last Name (Optional)</label>
+        <input type="text" name="last_name" id="modal-last">
+      </div>
+      <div class="form-group">
+        <label>Date of Birth (Optional)</label>
+        <input type="date" name="date_of_birth" id="modal-dob">
+      </div>
+
+      <div class="form-group" style="margin-top:16px;">
+        <label>Enrol in Programmes</label>
+        <div style="display:flex; flex-direction:column; gap:8px; margin-top:8px;">
+          {% for prog in available_programmes %}
+          <label style="display:flex; align-items:center; gap:8px; font-weight:normal; text-transform:none; letter-spacing:normal;">
+            <input type="checkbox" name="prog_ids" value="{{ prog.id }}" class="prog-cb" style="width:20px; height:20px; accent-color:var(--green-mid);">
+            {{ prog.icon }} {{ prog.name }}
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div style="display:flex; gap:10px; margin-top:24px;">
+        <button type="button" class="btn btn-secondary" onclick="hideOverlay()" style="flex:1;">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="modal-submit" style="flex:1;">Save</button>
+      </div>
+    </form>
+    
+    <form method="post" id="delete-form" style="display:none; margin-top:12px; border-top:1px solid var(--cream-dark); padding-top:12px;" onsubmit="return confirm('Remove this child? This cannot be undone.');">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="delete">
+      <input type="hidden" name="child_id" id="delete-child-id" value="">
+      <button type="submit" class="btn btn-danger" style="background:transparent; color:var(--danger); border:1px solid var(--danger);">Remove Child</button>
+    </form>
+
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function showOverlay(mode) {
+  document.getElementById('modal-title').textContent = mode === 'add' ? 'Add Child' : 'Edit Child';
+  document.getElementById('form-action').value = mode;
+  document.getElementById('delete-form').style.display = mode === 'add' ? 'none' : 'block';
+  
+  if (mode === 'add') {
+    document.getElementById('modal-first').value = '';
+    document.getElementById('modal-last').value = '';
+    document.getElementById('modal-dob').value = '';
+    document.querySelectorAll('.prog-cb').forEach(cb => cb.checked = false);
+  }
+  
+  document.getElementById('child-overlay').classList.add('show');
+}
+
+function editChild(id, first, last, dob, enrolledIds) {
+  document.getElementById('form-child-id').value = id;
+  document.getElementById('delete-child-id').value = id;
+  document.getElementById('modal-first').value = first;
+  document.getElementById('modal-last').value = last;
+  document.getElementById('modal-dob').value = dob;
+  
+  document.querySelectorAll('.prog-cb').forEach(cb => {
+    cb.checked = enrolledIds.includes(parseInt(cb.value));
+  });
+  
+  showOverlay('edit');
+}
+
+function hideOverlay() {
+  document.getElementById('child-overlay').classList.remove('show');
+}
+</script>
+{% endblock %}

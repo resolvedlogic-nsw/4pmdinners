@@ -36,10 +36,14 @@
   {% csrf_token %}
 
   {% if branch.is_children_programme %}
-    {# ── Children's programme: checkbox list ── #}
     <div class="card animate-in delay-1">
-      <h3 style="margin-bottom:4px;">Who's attending today?</h3>
-      <p class="text-muted" style="font-size:0.85rem; margin-bottom:16px;">1 credit per child selected</p>
+      <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+        <div>
+          <h3 style="margin-bottom:4px;">Who's attending today?</h3>
+          <p class="text-muted" style="font-size:0.85rem; margin-bottom:16px;">Tap to select children</p>
+        </div>
+        <a href="{% url 'branch_family_manage_children' branch.slug %}" class="btn btn-secondary btn-sm" style="width:auto; padding:6px 12px;">✏️ Manage</a>
+      </div>
 
       {% if children %}
         <ul class="child-check-list" id="child-list">

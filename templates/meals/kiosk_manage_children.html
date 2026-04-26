@@ -65,6 +65,18 @@
       <input type="date" id="child-dob">
     </div>
 
+    <div class="form-group" style="margin-top:16px;">
+      <label>Enrol in Programmes</label>
+      <div style="display:flex; flex-direction:column; gap:8px; margin-top:8px;">
+        {% for prog in available_programmes %}
+        <label style="display:flex; align-items:center; gap:8px; font-weight:normal; text-transform:none; letter-spacing:normal;">
+          <input type="checkbox" name="prog_ids" value="{{ prog.id }}" class="prog-cb" style="width:20px; height:20px; accent-color:var(--green-mid);">
+          {{ prog.icon }} {{ prog.name }}
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+
     <div id="child-add-error" class="alert alert-danger" style="display:none;"></div>
 
     <div style="display:flex; gap:10px; margin-top:24px;">
@@ -121,12 +133,17 @@ async function submitAddChild() {
   btn.disabled = true; btn.textContent = 'Adding…';
   errorEl.style.display = 'none';
 
-  try {
+try {
+    // NEW: Gather all checked boxes
+    const branchIds = Array.from(document.querySelectorAll('.prog-cb:checked')).map(cb => parseInt(cb.value));
+
     const res  = await fetch(`/${branchSlug}/api/kiosk/child/add/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
-      body: JSON.stringify({ family_id: familyId, first_name: first, last_name: last, date_of_birth: dob })
+      // NEW: Added branch_ids to the JSON payload
+      body: JSON.stringify({ family_id: familyId, first_name: first, last_name: last, date_of_birth: dob, branch_ids: branchIds })
     });
+    
     const data = await res.json();
     if (data.success) {
       hideAddChild();
