@@ -7,7 +7,7 @@ import csv, datetime
 
 @admin.register(Branch)
 class BranchAdmin(admin.ModelAdmin):
-    list_display  = ['name', 'slug', 'branch_type', 'theme', 'icon', 'is_active', 'is_children_programme', 'order']
+    list_display  = ['name', 'slug', 'branch_type', 'theme', 'icon', 'is_active', 'is_children_programme', 'is_no_fee_programme', 'order']
     list_editable = ['order', 'is_active']
     prepopulated_fields = {'slug': ('name',)}
 

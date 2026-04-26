@@ -305,8 +305,15 @@ def user_summary(request, branch_slug):
         'all_balances':     family.balances.select_related('branch').filter(branch__is_active=True),
         'has_online_topup': products.filter(price_aud__isnull=False).exclude(price_aud=0).exists(),
     })
+    ctx['is_free_programme'] = branch.is_no_fee_programme
+
     if branch.is_children_programme:
-        ctx['children'] = family.children.filter(is_active=True)
+        # NEW: Filter kids by enrolment so Dennis only shows up where he belongs
+        ctx['children'] = family.children.filter(
+            is_active=True, 
+            enrolled_branches=branch
+        ).distinct()
+        
     return render(request, 'meals/user_summary.html', ctx)
 
 @require_family_session

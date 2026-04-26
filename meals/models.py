@@ -12,11 +12,11 @@ from django.contrib.auth.hashers import make_password, check_password as django_
 class Branch(models.Model):
     BRANCH_TYPES = [
         ('dinners', '4pm Dinners'), ('coffee', 'Coffee Sundays'),
-        ('jivers', 'Junior Jivers'), ('kids', 'Lighthouse Kids'), ('youth', 'Lighthouse Youth'),
+        ('sunday', 'Kids Church'), ('kids', 'Lighthouse Kids'), ('youth', 'Lighthouse Youth'),
     ]
     THEME_CHOICES = [
         ('green', 'Green (Dinners)'), ('amber', 'Amber (Coffee)'),
-        ('coral', 'Coral (Junior Jivers)'), ('blue', 'Blue (Kids)'),
+        ('coral', 'Coral (Kids Church)'), ('blue', 'Blue (Kids)'),
         ('purple', 'Purple (Youth)'), ('slate', 'Slate (Admin/Other)'),
     ]
     name                  = models.CharField(max_length=100)
@@ -27,6 +27,7 @@ class Branch(models.Model):
     description           = models.CharField(max_length=255, blank=True)
     kiosk_pin_hash        = models.CharField(max_length=256)
     is_active             = models.BooleanField(default=True)
+    is_no_fee_programme   = models.BooleanField(default=False, help_text="Hides all credit balances and top-up buttons.")
     is_children_programme = models.BooleanField(default=False)
     order                 = models.PositiveIntegerField(default=0)
 
@@ -263,7 +264,7 @@ class AttendanceRecord(models.Model):
     transaction  = models.OneToOneField(Transaction, on_delete=models.PROTECT, related_name='attendance_record', null=True, blank=True)
     timestamp    = models.DateTimeField(default=timezone.now)
     notes        = models.TextField(blank=True)
-    
+
     class Meta:
         ordering = ['-session_date', 'family__surname']
 
