@@ -75,6 +75,7 @@ def family_register(request, branch_slug):
     if request.method == 'POST':
         surname = request.POST.get('surname', '').strip()
         contact = request.POST.get('primary_contact', '').strip()
+        first_names = request.POST.get('first_names', '').strip()
         pin = request.POST.get('pin', '')
         confirm_pin = request.POST.get('confirm_pin', '')
 
@@ -88,7 +89,7 @@ def family_register(request, branch_slug):
             ctx['error'] = 'An account with this mobile number/email already exists. Please log in.'
         else:
             # Create the family
-            display = f"{surname} Family"
+            display = f"{surname} — {first_names}"
             family = Family.objects.create(
                 surname=surname, 
                 primary_contact=contact, 
