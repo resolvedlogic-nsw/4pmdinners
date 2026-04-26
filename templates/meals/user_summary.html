@@ -9,14 +9,13 @@
 <div class="wallet-container" style="display:flex; flex-direction:column; gap:16px;">
     <h2>Your Church Wallet</h2>
     
-    {% for pocket_item in all_balances %}
-    <div class="card pocket-card" style="padding:16px; border:1px solid var(--cream-dark); border-radius:8px;">
+    <div class="card pocket-card" style="padding:16px; border:1px solid var(--cream-dark); border-radius:8px; border-left:4px solid var(--green-light);">
         <div style="display:flex; justify-content:space-between; align-items:center;">
             <div>
-                <h3 style="margin:0; font-size:1.2rem;">{{ pocket_item.branch.icon }} {{ pocket_item.branch.name }}</h3>
-                <p style="font-size:1.5rem; font-weight:bold; margin:8px 0 0 0;">{{ pocket_item.balance }} cr</p>
+                <h3 style="margin:0; font-size:1.2rem;">{{ pocket.branch.icon }} {{ pocket.branch.name }}</h3>
+                <p style="font-size:1.5rem; font-weight:bold; margin:8px 0 0 0;">{{ pocket.balance|floatformat:"-2" }} cr</p>
                 
-                {% with approx=pocket_item.get_approx_quantities %}
+                {% with approx=pocket.get_approx_quantities %}
                     {% if approx %}
                         <p style="font-size: 0.85rem; color: #666; margin:4px 0 0 0;">
                             (Roughly: {{ approx|join:", " }})
@@ -26,13 +25,11 @@
                     {% endif %}
                 {% endwith %}
             </div>
-            
             <div>
-                <a href="{% url 'branch_topup_select' pocket_item.branch.slug %}" class="btn btn-primary btn-sm">Top Up</a>
+                <a href="{% url 'branch_topup_select' pocket.branch.slug %}" class="btn btn-primary btn-sm">Top Up</a>
             </div>
         </div>
     </div>
-    {% endfor %}
 </div>
 
 <form method="post" action="{% url 'branch_generate_qr' branch.slug %}" id="meal-form">
@@ -116,6 +113,24 @@
   </div>
 </form>
 
+<div class="wallet-container animate-in delay-4" style="display:flex; flex-direction:column; gap:12px; margin-top:24px;">
+    <h3 style="font-size: 1.1rem; color: var(--ink-muted);">Other Balances</h3>
+    {% for pocket_item in all_balances %}
+        {% if pocket_item.branch.id != branch.id %}
+        <div class="card pocket-card" style="padding:12px 16px; border:1px solid var(--cream-dark); border-radius:8px; margin-bottom:0;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <h3 style="margin:0; font-size:1rem; font-weight:600;">{{ pocket_item.branch.icon }} {{ pocket_item.branch.name }}</h3>
+                    <p style="font-size:1.1rem; font-weight:bold; margin:4px 0 0 0; color:var(--ink-muted);">{{ pocket_item.balance|floatformat:"-2" }} cr</p>
+                </div>
+                <div>
+                    <a href="{% url 'branch_topup_select' pocket_item.branch.slug %}" class="btn btn-secondary btn-sm" style="min-height:36px; padding:6px 12px;">Top Up</a>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    {% endfor %}
+</div>
 {% endblock %}
 
 {% block scripts %}

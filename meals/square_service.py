@@ -39,7 +39,7 @@ def create_payment_link(order_record, success_url, cancel_url):
                 'amount': item['unit_price_cents'],
                 'currency': 'AUD',
             },
-            'note': f"Branch: {order_record.family.branch.name} | Family: {order_record.family.display_name}",
+            'note': f"Branch: {order_record.branch.name} | Family: {order_record.family.display_name}",
         })
 
     body = {
@@ -51,7 +51,7 @@ def create_payment_link(order_record, success_url, cancel_url):
             'metadata': {
                 'order_uuid':   str(order_record.id),
                 'family_id':    str(order_record.family_id),
-                'branch_slug':  order_record.family.branch.slug,
+                'branch_slug':  order_record.branch.slug,
             },
         },
         'checkout_options': {

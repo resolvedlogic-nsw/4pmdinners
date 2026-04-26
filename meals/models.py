@@ -148,6 +148,7 @@ class Child(models.Model):
     last_name     = models.CharField(max_length=100, blank=True)
     date_of_birth = models.DateField(null=True, blank=True)
     is_active     = models.BooleanField(default=True)
+    enrolled_branches = models.ManyToManyField(Branch, related_name='enrolled_children', blank=True)
 
     class Meta:
         ordering = ['first_name', 'last_name']
@@ -261,7 +262,8 @@ class AttendanceRecord(models.Model):
     session_date = models.DateField(default=timezone.localdate, db_index=True)
     transaction  = models.OneToOneField(Transaction, on_delete=models.PROTECT, related_name='attendance_record', null=True, blank=True)
     timestamp    = models.DateTimeField(default=timezone.now)
-
+    notes        = models.TextField(blank=True)
+    
     class Meta:
         ordering = ['-session_date', 'family__surname']
 
