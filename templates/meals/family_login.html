@@ -3,7 +3,7 @@
 {% block content %}
 <div class="animate-in">
   <h1>Find your family</h1>
-  <p>Type your surname to search, then enter your PIN.</p>
+  <p>Type your mobile number (no spaces), then enter your PIN.</p>
 </div>
 
 <form method="post" class="animate-in delay-1">
@@ -14,8 +14,8 @@
   {% endif %}
 
   <div class="form-group">
-    <label for="primary_contact">Mobile Number (or Email)</label>
-    <input type="text" id="primary_contact" name="primary_contact" value="{{ attempted_contact }}" required placeholder="e.g. 0412 345 678" style="background:#fff;">
+    <label for="primary_contact">Mobile Number</label>
+    <input type="text" id="primary_contact" name="primary_contact" value="{{ attempted_contact }}" required placeholder="e.g. 0412345678" style="background:#fff;">
   </div>
 
   <div class="form-group" style="margin-top:16px;">
@@ -40,19 +40,7 @@
   </div>
 </div>
 
-  <div class="card animate-in delay-2" id="step-pin" style="{% if not selected_family_id %}display:none{% endif %}">
-    <div class="form-group mb-0">
-      <label for="pin-input">Enter PIN</label>
-      <input type="tel" id="pin-input" name="pin" class="pin-input" maxlength="6" placeholder="••••" autocomplete="current-password" inputmode="numeric">
-    </div>
-    <p class="text-muted mt-8 mb-0" style="font-size:0.8rem;">Default PIN is your primary contact's birthday (DDMM).</p>
-  </div>
 
-  <div class="animate-in delay-3">
-    <button type="submit" class="btn btn-primary" id="submit-btn" {% if not selected_family_id %}disabled{% endif %}>
-      Sign In
-    </button>
-  </div>
 </form>
 
 <div class="text-center mt-16 animate-in delay-4">
