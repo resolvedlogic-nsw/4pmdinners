@@ -114,19 +114,25 @@ def family_login(request, branch_slug):
     ctx['error'] = None
 
     if request.method == 'POST':
-        family_id = request.POST.get('family_id')
+        # NEW: Secure login using contact info instead of an exposed list of IDs
+        contact = request.POST.get('primary_contact', '').strip()
         pin = request.POST.get('pin', '')
+
         try:
-            family = Family.objects.get(id=family_id, is_active=True)
+            # Look up the family by their exact contact info
+            family = Family.objects.get(primary_contact__iexact=contact, is_active=True)
             if check_pin(pin, family.pin_hash):
                 request.session['family_id']   = family.id
                 request.session['branch_slug'] = branch_slug
+                request.session.set_expiry(15552000) # 6 Month Login active!
                 return redirect('branch_user_summary', branch_slug=branch_slug)
-            ctx['error'] = 'Incorrect PIN.'
+            ctx['error'] = 'Invalid contact detail or PIN.'
         except Family.DoesNotExist:
-            ctx['error'] = 'Family not found.'
-        ctx['selected_family_id']   = family_id
-        ctx['selected_family_name'] = request.POST.get('family_name', '')
+            ctx['error'] = 'Invalid contact detail or PIN.'
+        except Family.MultipleObjectsReturned:
+            ctx['error'] = 'Multiple accounts found for this contact. Please see staff.'
+
+        ctx['attempted_contact'] = contact
 
     return render(request, 'meals/family_login.html', ctx)
 
