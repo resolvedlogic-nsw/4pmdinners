@@ -782,7 +782,7 @@ def api_kiosk_deduct(request, branch_slug):
             qty = int(data.get(f'qty_{product.id}', 0))
             total_cost += product.credit_cost * qty
 
-notes_input = data.get('notes', '').strip()
+    notes_input = data.get('notes', '').strip()
 
     # THE BYPASS: Free Sunday School route
     if branch.is_children_programme and total_cost == 0:
