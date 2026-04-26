@@ -121,11 +121,20 @@
             <div style="display:flex; justify-content:space-between; align-items:center;">
                 <div>
                     <h3 style="margin:0; font-size:1rem; font-weight:600;">{{ pocket_item.branch.icon }} {{ pocket_item.branch.name }}</h3>
-                    <p style="font-size:1.1rem; font-weight:bold; margin:4px 0 0 0; color:var(--ink-muted);">{{ pocket_item.balance|floatformat:"-2" }} cr</p>
+                    
+                    {% if pocket_item.branch.is_no_fee_programme %}
+                        <p style="font-size:1.1rem; font-weight:bold; margin:4px 0 0 0; color:var(--green-deep);">∞</p>
+                    {% else %}
+                        <p style="font-size:1.1rem; font-weight:bold; margin:4px 0 0 0; color:var(--ink-muted);">{{ pocket_item.balance|floatformat:"-2" }} cr</p>
+                    {% endif %}
                 </div>
+                
+                {# Only show Top Up if the other branch isn't a free one #}
+                {% if not pocket_item.branch.is_no_fee_programme %}
                 <div>
                     <a href="{% url 'branch_topup_select' pocket_item.branch.slug %}" class="btn btn-secondary btn-sm" style="min-height:36px; padding:6px 12px;">Top Up</a>
                 </div>
+                {% endif %}
             </div>
         </div>
         {% endif %}
@@ -135,7 +144,7 @@
 
 {% block scripts %}
 <script>
-const balance = {{ pocket.balance|floatformat:"-2" }};
+const balance = {% if is_free_programme %}999{% else %}{{ pocket.balance|floatformat:"-2" }}{% endif %};
 
 {% if branch.is_children_programme %}
 // ── Children's programme logic ──────────────────────────────────────────────
