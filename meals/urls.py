@@ -6,6 +6,7 @@ urlpatterns = [
 
     # ── Home ──────────────────────────────────────────────────────────────────
     path('', views.home, name='home'),
+    path('guide/', TemplateView.as_view(template_name='guide.html'), name='guide'),
 
     # ── Settings (staff only) ─────────────────────────────────────────────────
     path('settings/', views.settings_home, name='settings_home'),
@@ -14,9 +15,10 @@ urlpatterns = [
     path('settings/branch/<int:branch_id>/delete/', views.settings_branch_delete, name='settings_branch_delete'),
     path('settings/branch/<int:branch_id>/products/', views.settings_products, name='settings_products'),
     path('settings/product/<int:product_id>/delete/', views.settings_product_delete, name='settings_product_delete'),
-    path('guide/', TemplateView.as_view(template_name='guide.html'), name='guide'),
+    
 
     # ── Branch-scoped family routes ───────────────────────────────────────────
+    path('<slug:branch_slug>/register/', views.family_register, name='branch_family_register'),    
     path('<slug:branch_slug>/', views.branch_index, name='branch_index'),
     path('<slug:branch_slug>/login/', views.family_login, name='branch_family_login'),
     path('<slug:branch_slug>/logout/', views.family_logout, name='branch_family_logout'),
