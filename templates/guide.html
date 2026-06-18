@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Getting Started — my.lighthouse.net.au</title>
+<link href="https://fonts.googleapis.com/css2?family=Lora:wght@400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --navy:    #1a2744;
+    --gold:    #c8982a;
+    --gold-lt: #f0e0b0;
+    --cream:   #faf7f2;
+    --white:   #ffffff;
+    --ink:     #222831;
+    --mid:     #5a6277;
+    --rule:    #ddd8ce;
+    --teal:    #2a7a8c;
+    --teal-lt: #e5f4f7;
+  }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--cream);
+    color: var(--ink);
+    font-size: 16px;
+    line-height: 1.7;
+  }
+
+  /* ── HEADER ── */
+  header {
+    background: var(--navy);
+    color: var(--white);
+    padding: 48px 24px 40px;
+    text-align: center;
+  }
+
+  .site-badge {
+    display: inline-block;
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--gold);
+    border: 1px solid var(--gold);
+    border-radius: 4px;
+    padding: 4px 12px;
+    margin-bottom: 20px;
+  }
+
+  header h1 {
+    font-family: 'Lora', serif;
+    font-size: clamp(1.8rem, 5vw, 2.8rem);
+    font-weight: 600;
+    line-height: 1.2;
+    margin-bottom: 12px;
+  }
+
+  header p {
+    color: rgba(255,255,255,0.7);
+    font-size: 1rem;
+    max-width: 480px;
+    margin: 0 auto;
+  }
+
+  .url-pill {
+    display: inline-block;
+    margin-top: 20px;
+    background: rgba(200, 152, 42, 0.15);
+    border: 1px solid var(--gold);
+    color: var(--gold-lt);
+    font-family: 'Inter', monospace;
+    font-size: 0.9rem;
+    padding: 6px 18px;
+    border-radius: 100px;
+    letter-spacing: 0.03em;
+  }
+
+  /* ── NAV STRIP ── */
+  .nav-strip {
+    background: var(--white);
+    border-bottom: 1px solid var(--rule);
+    padding: 0 24px;
+    display: flex;
+    justify-content: center;
+    gap: 0;
+    overflow-x: auto;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+
+  .nav-strip a {
+    display: block;
+    padding: 14px 18px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--mid);
+    text-decoration: none;
+    border-bottom: 3px solid transparent;
+    white-space: nowrap;
+    transition: color 0.15s, border-color 0.15s;
+  }
+
+  .nav-strip a:hover {
+    color: var(--navy);
+    border-bottom-color: var(--gold);
+  }
+
+  /* ── MAIN LAYOUT ── */
+  main {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 0 24px 80px;
+  }
+
+  /* ── SECTION ── */
+  section {
+    padding-top: 60px;
+  }
+
+  .section-eyebrow {
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 8px;
+  }
+
+  section h2 {
+    font-family: 'Lora', serif;
+    font-size: clamp(1.3rem, 3vw, 1.75rem);
+    font-weight: 600;
+    color: var(--navy);
+    margin-bottom: 16px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  section p {
+    color: var(--mid);
+    margin-bottom: 16px;
+  }
+
+  section p:last-child { margin-bottom: 0; }
+
+  /* ── STEPS ── */
+  .steps { margin-top: 24px; }
+
+  .step {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 28px;
+    align-items: flex-start;
+  }
+
+  .step-num {
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    background: var(--navy);
+    color: var(--gold);
+    font-family: 'Lora', serif;
+    font-size: 1rem;
+    font-weight: 600;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 2px;
+  }
+
+  .step-body strong {
+    display: block;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 4px;
+  }
+
+  .step-body p {
+    margin: 0;
+    font-size: 0.92rem;
+  }
+
+  /* ── CALLOUT BOX ── */
+  .callout {
+    background: var(--teal-lt);
+    border-left: 4px solid var(--teal);
+    border-radius: 0 8px 8px 0;
+    padding: 16px 20px;
+    margin: 24px 0;
+    font-size: 0.92rem;
+    color: var(--ink);
+  }
+
+  .callout strong {
+    color: var(--teal);
+    display: block;
+    font-size: 0.78rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .callout.gold {
+    background: #fdf8ed;
+    border-left-color: var(--gold);
+  }
+
+  .callout.gold strong { color: #9a6f10; }
+
+  /* ── FEATURE GRID ── */
+  .feature-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px;
+    margin-top: 24px;
+  }
+
+  .feature-card {
+    background: var(--white);
+    border: 1px solid var(--rule);
+    border-radius: 10px;
+    padding: 20px;
+  }
+
+  .feature-card .icon {
+    font-size: 1.8rem;
+    margin-bottom: 10px;
+  }
+
+  .feature-card h3 {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--navy);
+    margin-bottom: 6px;
+  }
+
+  .feature-card p {
+    font-size: 0.83rem;
+    color: var(--mid);
+    margin: 0;
+    line-height: 1.5;
+  }
+
+  /* ── FAQ ── */
+  .faq-item {
+    border-top: 1px solid var(--rule);
+    padding: 18px 0;
+  }
+
+  .faq-item:last-child { border-bottom: 1px solid var(--rule); }
+
+  .faq-item h3 {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--navy);
+    margin-bottom: 6px;
+  }
+
+  .faq-item p {
+    font-size: 0.9rem;
+    color: var(--mid);
+    margin: 0;
+  }
+
+  /* ── FOOTER ── */
+  footer {
+    text-align: center;
+    padding: 32px 24px;
+    font-size: 0.82rem;
+    color: var(--mid);
+    border-top: 1px solid var(--rule);
+    background: var(--white);
+  }
+
+  footer a {
+    color: var(--teal);
+    text-decoration: none;
+  }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 500px) {
+    .nav-strip a { padding: 12px 10px; font-size: 0.75rem; }
+    .feature-grid { grid-template-columns: 1fr 1fr; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="site-badge">Lighthouse Church</div>
+  <h1>Welcome to your<br>Lighthouse account</h1>
+  <p>Everything you need to get started — from creating your account to using your credits.</p>
+  <span class="url-pill">my.lighthouse.net.au</span>
+</header>
+
+<nav class="nav-strip" aria-label="Page sections">
+  <a href="#what-is-it">What is it?</a>
+  <a href="#create-account">Create Account</a>
+  <a href="#existing-credits">Existing Credits</a>
+  <a href="#using-credits">Using Credits</a>
+  <a href="#features">Features</a>
+  <a href="#faq">FAQ</a>
+</nav>
+
+<main>
+
+  <!-- WHAT IS IT -->
+  <section id="what-is-it">
+    <p class="section-eyebrow">Overview</p>
+    <h2>What is my.lighthouse.net.au?</h2>
+    <p>This is Lighthouse Church's member portal — a simple website your family uses to manage credits, book into events like <strong>4pm Dinners</strong>, and keep track of purchases at the coffee cart and other ministries.</p>
+    <p>You don't need to install an app. It works right from any web browser on your phone, tablet, or computer.</p>
+
+    <div class="feature-grid">
+      <div class="feature-card">
+        <div class="icon">☕</div>
+        <h3>Coffee</h3>
+        <p>Use credits at the coffee cart without handling cash.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">🍽️</div>
+        <h3>4pm Dinners</h3>
+        <p>Pay for Sunday dinners from your credit balance.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">🧒</div>
+        <h3>Lighthouse Kids</h3>
+        <p>Manage credits for kids' ministry activities.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">🎉</div>
+        <h3>Lighthouse Youth</h3>
+        <p>Youth events and purchases, all in one place.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- CREATE ACCOUNT -->
+  <section id="create-account">
+    <p class="section-eyebrow">Step-by-step</p>
+    <h2>Creating your family account</h2>
+    <p>One account covers your whole family. Both parents' names go on the same account — you don't need separate logins.</p>
+
+    <div class="steps">
+
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <strong>Go to the portal</strong>
+          <p>Open your browser and visit <a href="https://my.lighthouse.net.au" style="color:var(--teal)">my.lighthouse.net.au</a>. You'll see the Lighthouse Church credits homepage.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <strong>Choose the area you want to register for</strong>
+          <p>Select the ministry or service you use most — for example <em>4pm Dinners</em> or <em>Coffee</em>. Each area has its own register link, but your login will work across the whole site.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <strong>Click "Register"</strong>
+          <p>On the login page, click the <strong>Register</strong> link to create a new account.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <strong>Fill in your family details</strong>
+          <p>Enter both parents' first names, your family surname, and a valid email address. This email will be your login and is how the church will contact you about your account.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">5</div>
+        <div class="step-body">
+          <strong>Choose a password</strong>
+          <p>Pick a password you'll remember. It stays private — church staff cannot see it.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">6</div>
+        <div class="step-body">
+          <strong>Submit and log in</strong>
+          <p>Once registered, you'll be taken straight to your account. Your starting credit balance will show as zero until credits are added.</p>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="callout">
+      <strong>Tip</strong>
+      Already have an account? Just click <strong>Login</strong> and enter your email and password. Use the <em>Forgot password</em> link if you can't remember it.
+    </div>
+  </section>
+
+  <!-- EXISTING CREDITS -->
+  <section id="existing-credits">
+    <p class="section-eyebrow">Transferring what you already have</p>
+    <h2>Getting your existing credits added</h2>
+    <p>If your family already has credits on the church's system — from a previous prepaid purchase, for example — they can be moved to your new online account by a volunteer.</p>
+
+    <div class="steps">
+
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <strong>Create your account first</strong>
+          <p>Your account needs to exist before credits can be added to it. Follow the steps above if you haven't already.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <strong>Visit the kiosk on Sunday</strong>
+          <p>Look for a volunteer at the Lighthouse Church kiosk. Let them know you've just registered and have existing credits to transfer.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <strong>Give them your account email</strong>
+          <p>The volunteer will look up your account by email address and add your credits. You'll see the updated balance in your account straight away.</p>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="callout gold">
+      <strong>Note</strong>
+      Credits are specific to each area (e.g. coffee credits stay with the coffee cart). If you have credits across different ministries, let the volunteer know and they can transfer each one.
+    </div>
+  </section>
+
+  <!-- USING CREDITS -->
+  <section id="using-credits">
+    <p class="section-eyebrow">Day-to-day use</p>
+    <h2>Using your credits</h2>
+    <p>Once your account is set up and topped up, using credits is straightforward.</p>
+
+    <div class="steps">
+
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <strong>Log in at any time</strong>
+          <p>Visit <a href="https://my.lighthouse.net.au" style="color:var(--teal)">my.lighthouse.net.au</a> and sign in with your email and password. Your credit balance is shown on your account dashboard.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <strong>At the coffee cart or event</strong>
+          <p>Tell the volunteer your family name (or show your logged-in account on your phone). They'll look up your account and deduct the right amount from your balance.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <strong>Check your balance anytime</strong>
+          <p>Log in to see your current balance and recent transactions. You don't need to be at church to check.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <strong>Top up when you need to</strong>
+          <p>When your balance is running low, see a volunteer at the kiosk to add more credits to your account.</p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- FEATURES -->
+  <section id="features">
+    <p class="section-eyebrow">What's available</p>
+    <h2>What the portal covers</h2>
+    <p>Here's a summary of every area currently supported through your account.</p>
+
+    <div class="feature-grid">
+      <div class="feature-card">
+        <div class="icon">☕</div>
+        <h3>Coffee Cart</h3>
+        <p>Prepay for coffees and use your credit instead of cash each Sunday.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">🍽️</div>
+        <h3>4pm Dinners</h3>
+        <p>Credits for the family dinner that follows the 4pm service each week.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">🧒</div>
+        <h3>Lighthouse Kids</h3>
+        <p>Covers purchases and activities run through the kids' ministry.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">🎉</div>
+        <h3>Lighthouse Youth</h3>
+        <p>Covers youth group events, outings, and in-ministry purchases.</p>
+      </div>
+    </div>
+
+    <div class="callout" style="margin-top:28px;">
+      <strong>More coming</strong>
+      Additional ministries and features may be added to the portal over time. Watch for announcements from the church.
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section id="faq">
+    <p class="section-eyebrow">Common questions</p>
+    <h2>FAQ</h2>
+
+    <div class="faq-item">
+      <h3>Do I need to download an app?</h3>
+      <p>No. The portal is a website — just open it in any browser on your phone or computer.</p>
+    </div>
+
+    <div class="faq-item">
+      <h3>Can both parents log in?</h3>
+      <p>Yes. It's one shared family account — both parents can log in using the same email and password from any device.</p>
+    </div>
+
+    <div class="faq-item">
+      <h3>I forgot my password. What do I do?</h3>
+      <p>On the login page, click the <em>Forgot password</em> link and follow the instructions sent to your email address.</p>
+    </div>
+
+    <div class="faq-item">
+      <h3>My balance doesn't look right. Who do I talk to?</h3>
+      <p>See a volunteer at the kiosk on Sunday and they can look into it for you.</p>
+    </div>
+
+    <div class="faq-item">
+      <h3>Are my credits refundable?</h3>
+      <p>Please speak with a church volunteer or staff member about credit refund queries — they'll be happy to help.</p>
+    </div>
+
+    <div class="faq-item">
+      <h3>Can I use credits for more than one ministry area?</h3>
+      <p>Yes — credits are tracked separately per area. You can have a coffee balance, a 4pm Dinners balance, and so on, all under the same account.</p>
+    </div>
+
+    <div class="faq-item">
+      <h3>Is my information secure?</h3>
+      <p>Your password is encrypted and not visible to church staff. Your account details are only used to manage your credits within Lighthouse Church.</p>
+    </div>
+
+  </section>
+
+</main>
+
+<footer>
+  <p>Lighthouse Church &nbsp;·&nbsp; <a href="https://my.lighthouse.net.au">my.lighthouse.net.au</a></p>
+  <p style="margin-top:6px;">Questions? See a volunteer at the kiosk on Sunday.</p>
+</footer>
+
+</body>
+</html>
