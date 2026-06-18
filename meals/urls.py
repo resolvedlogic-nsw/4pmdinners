@@ -1,5 +1,6 @@
 from django.urls import path
 from . import views
+from django.views.generic import TemplateView
 
 urlpatterns = [
 
@@ -13,16 +14,14 @@ urlpatterns = [
     path('settings/branch/<int:branch_id>/delete/', views.settings_branch_delete, name='settings_branch_delete'),
     path('settings/branch/<int:branch_id>/products/', views.settings_products, name='settings_products'),
     path('settings/product/<int:product_id>/delete/', views.settings_product_delete, name='settings_product_delete'),
+    path('guide/', TemplateView.as_view(template_name='guide.html'), name='guide'),
 
     # ── Branch-scoped family routes ───────────────────────────────────────────
     path('<slug:branch_slug>/', views.branch_index, name='branch_index'),
     path('<slug:branch_slug>/login/', views.family_login, name='branch_family_login'),
     path('<slug:branch_slug>/logout/', views.family_logout, name='branch_family_logout'),
-    path('<slug:branch_slug>/register/', views.family_register, name='branch_family_register'),
-    path('<slug:branch_slug>/recover/', views.family_recover_pin, name='branch_recover_pin'),
     path('<slug:branch_slug>/families/json/', views.families_json, name='branch_families_json'),
     path('<slug:branch_slug>/summary/', views.user_summary, name='branch_user_summary'),
-    path('<slug:branch_slug>/family/children/', views.family_manage_children, name='branch_family_manage_children'),
     path('<slug:branch_slug>/qr/generate/', views.generate_qr, name='branch_generate_qr'),
     path('<slug:branch_slug>/qr/display/<uuid:nonce_id>/', views.qr_display, name='branch_qr_display'),
     path('<slug:branch_slug>/qr/status/<uuid:nonce_id>/', views.qr_status, name='branch_qr_status'),
@@ -43,11 +42,9 @@ urlpatterns = [
     path('<slug:branch_slug>/kiosk/manual/', views.kiosk_manual, name='branch_kiosk_manual'),
     path('<slug:branch_slug>/kiosk/family/<int:family_id>/', views.kiosk_family_detail, name='branch_kiosk_family_detail'),
     path('<slug:branch_slug>/kiosk/family/<int:family_id>/children/', views.kiosk_manage_children, name='branch_kiosk_manage_children'),
-    path('<slug:branch_slug>/kiosk/bulk/', views.kiosk_bulk_checkin, name='branch_kiosk_bulk_checkin'),
-    path('<slug:branch_slug>/kiosk/attendance/', views.kiosk_view_attendance, name='branch_kiosk_view_attendance'),
     path('<slug:branch_slug>/kiosk/export/attendance/', views.kiosk_export_attendance, name='branch_kiosk_export_attendance'),
     path('<slug:branch_slug>/kiosk/export/roster/', views.kiosk_export_roster, name='branch_kiosk_export_roster'),
-    path('<slug:branch_slug>/kiosk/export/transactions/', views.kiosk_export_transactions, name='branch_kiosk_export_transactions'),
+    path('<slug:branch_slug>/kiosk/export/transactions/', views.kiosk_export_transactions, name='branch_kiosk_export_transactions'),    
 
     # ── Branch-scoped API endpoints ───────────────────────────────────────────
     path('<slug:branch_slug>/api/qr/redeem/', views.api_redeem_qr, name='branch_api_redeem_qr'),
