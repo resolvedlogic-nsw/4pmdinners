@@ -9,7 +9,7 @@
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   :root {
-    --navy:    #1a2744;
+    --navy:    #082336;
     --gold:    #c8982a;
     --gold-lt: #f0e0b0;
     --cream:   #faf7f2;
@@ -295,15 +295,39 @@
   @media (prefers-reduced-motion: reduce) {
     * { transition: none !important; }
   }
+
+  .my-logo {
+  width: 100%;
+  max-width: 300px; /* desktop size */
+  height: auto;
+  display: block;
+  margin: 0 auto;
+}
+
+@media (max-width: 768px) {
+  .my-logo {
+    max-width: 180px; /* smaller on tablets */
+  }
+}
+
+@media (max-width: 480px) {
+  .my-logo {
+    max-width: 140px; /* compact for mobile */
+  }
+}
+
 </style>
 </head>
 <body>
 
 <header>
   <div class="site-badge">Lighthouse Church</div>
-  <h1>Welcome to your<br>Lighthouse account</h1>
-  <p>Everything you need to get started - from creating your account to using your credits.</p>
-  <span class="url-pill">my.lighthouse.net.au</span>
+  <h1>Welcome to your</h1>
+  <div class="url-pill">
+    <img src="/static/mylogo.jpg" alt="my.lighthouse.net.au logo" class="my-logo">
+  </div>
+  <p>Everything you need to get started – from creating your account to using your credits.</p>
+  
 </header>
 
 <nav class="nav-strip" aria-label="Page sections">
