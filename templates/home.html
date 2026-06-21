@@ -21,9 +21,37 @@
       <p>No programmes set up yet. <a href="/settings/">Visit admin</a> to get started.</p>
     </div>
   {% endfor %}
-  <a href="https://www.jotform.com/app/223207938331858" class="branch-card" style="border-left-color:#888;">
-    <img src="{% static 'merch.jpg' %}" alt="Merch" style="width:100%; height:auto; border-radius:6px;">
-  </a>
+{% load tz %}
+{% timezone "Australia/Sydney" %}
+    {% now "Y-m-d H:i" as current_time %}
+
+    {# --- DATE WINDOWS --- #}
+    {% if current_time < "2026-07-06 00:00" %}
+        {# NORMAL PERIOD #}
+        <a href="https://www.jotform.com/app/223207938331858" class="branch-card" style="border-left-color:#888;">
+            <img src="{% static 'merch.jpg' %}" alt="Merch" style="width:100%; height:auto; border-radius:6px;">
+        </a>
+
+    {% elif current_time < "2026-07-12 00:00" %}
+        {# FINAL WEEK #}
+        <a href="https://www.jotform.com/app/223207938331858" class="branch-card" style="border-left-color:#d97706;">
+            <img src="{% static 'merchweek.jpg' %}" alt="Merch – Final Week" style="width:100%; height:auto; border-radius:6px;">
+        </a>
+
+    {% elif current_time < "2026-07-12 23:59" %}
+        {# FINAL DAY #}
+        <a href="https://www.jotform.com/app/223207938331858" class="branch-card" style="border-left-color:#dc2626;">
+            <img src="{% static 'merchday.jpg' %}" alt="Merch – Final Day" style="width:100%; height:auto; border-radius:6px;">
+        </a>
+
+    {% elif current_time < "2026-07-18 23:59" %}
+        {# CLOSED BUT STILL VISIBLE FOR 6 DAYS — NO LINK #}
+        <div class="branch-card" style="border-left-color:#666;">
+            <img src="{% static 'merchclosed.jpg' %}" alt="Merch Closed" style="width:100%; height:auto; border-radius:6px;">
+        </div>
+
+    {% endif %}
+{% endtimezone %}
  
 </div>
 
