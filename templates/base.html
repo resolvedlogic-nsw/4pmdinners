@@ -240,7 +240,22 @@
     .branch-card .branch-icon { font-size: 2rem; margin-bottom: 4px; }
     .branch-card .branch-title { font-family: var(--font-display); font-size: 1.2rem; color: var(--green-deep); font-weight: 400; }
     .branch-card .branch-desc  { font-size: 0.85rem; color: var(--ink-muted); }
+.branch-card-image {
+  display: block;
+  padding: 0;
+  border: none;
+  background: none;
+  box-shadow: none;
+  border-radius: var(--radius);
+  overflow: hidden; 
+}
 
+.branch-card-image img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
     /* ── Animations ── */
     @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
     .animate-in  { animation: fadeUp 0.3s ease both; }
