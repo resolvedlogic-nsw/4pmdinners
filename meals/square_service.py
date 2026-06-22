@@ -77,16 +77,14 @@ def create_payment_link(order_record, success_url, cancel_url):
 
 
 def verify_payment(square_order_id):
-    """
-    Checks Square to confirm a payment has been completed for a given order_id.
-    Returns True if paid, False otherwise.
-    """
     client = _get_client()
     result = client.orders.retrieve_order(order_id=square_order_id)
 
     if result.is_success():
         order = result.body.get('order', {})
-        state = order.get('state', '')
-        # Square order states: OPEN, COMPLETED, CANCELED
-        return state == 'COMPLETED'
+        # Tenders are present as soon as payment is captured,
+        # even before the order state transitions to COMPLETED
+        if order.get('tenders'):
+            return True
+        return order.get('state', '') == 'COMPLETED'
     return False

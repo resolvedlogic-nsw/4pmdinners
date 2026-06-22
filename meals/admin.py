@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.utils.html import format_html
-from .models import Branch, Product, Family, FamilyBalance, Child, Transaction, QRCodeNonce, AttendanceRecord, AttendanceChild
+from .models import Branch, Product, Family, FamilyBalance, Child, Transaction, QRCodeNonce, AttendanceRecord, AttendanceChild, SquarePaymentOrder
 from django.http import HttpResponse
 import csv, datetime
 # ─── Branch ───────────────────────────────────────────────────────────────────
@@ -55,6 +55,13 @@ class TransactionAdmin(admin.ModelAdmin):
     list_filter = ['branch', 'reason', 'performed_by']
     search_fields = ['family__display_name', 'family__surname']
     
+@admin.register(SquarePaymentOrder)
+class SquarePaymentOrderAdmin(admin.ModelAdmin):
+    list_display  = ['created_at', 'family', 'branch', 'cart_summary', 'amount_aud', 'credits_to_add', 'status', 'square_order_id']
+    list_filter   = ['status', 'branch']
+    search_fields = ['family__display_name', 'family__surname', 'square_order_id']
+    readonly_fields = ['id', 'created_at', 'completed_at', 'square_order_id', 'square_payment_link_id', 'square_payment_id']
+
 # ─── QR Nonce ─────────────────────────────────────────────────────────────────
 
 @admin.register(QRCodeNonce)
