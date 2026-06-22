@@ -65,15 +65,18 @@ def create_payment_link(order_record, success_url, cancel_url):
 
     if result.is_success():
         link = result.body['payment_link']
+        related = result.body.get('related_resources', {})
+        orders  = related.get('orders', [])
+        square_order_id = orders[0]['id'] if orders else link.get('order_id', '')
         return (
             link['url'],
-            link.get('order_id', ''),
+            square_order_id,
             link['id'],
-        )
+    )
     else:
         errors = result.errors
         msg = '; '.join(e.get('detail', e.get('code', 'Unknown error')) for e in errors)
-        raise Exception(f"Square error: {msg}")
+        raise Exception(f"Square error: {msg}") 
 
 
 def verify_payment(square_order_id):
@@ -82,8 +85,6 @@ def verify_payment(square_order_id):
 
     if result.is_success():
         order = result.body.get('order', {})
-        # Tenders are present as soon as payment is captured,
-        # even before the order state transitions to COMPLETED
         if order.get('tenders'):
             return True
         return order.get('state', '') == 'COMPLETED'
