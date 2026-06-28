@@ -1,0 +1,192 @@
+{% extends "store/base.html" %}
+{% load static %}
+{% block title %}Checkout – Lighthouse Merch{% endblock %}
+
+{% block extra_head %}
+<style>
+  .checkout-grid {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 2rem;
+    align-items: start;
+  }
+  @media (max-width: 760px) {
+    .checkout-grid { grid-template-columns: 1fr; }
+    .order-summary-col { order: -1; }
+  }
+
+  .form-card {
+    background: var(--white);
+    border-radius: var(--radius);
+    padding: 1.75rem;
+    box-shadow: var(--shadow);
+  }
+  .form-card h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.25rem;
+    color: var(--green-dark);
+    margin-bottom: 1.25rem;
+  }
+
+  .form-group { margin-bottom: 1.1rem; }
+  .form-group label {
+    display: block;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    margin-bottom: 0.35rem;
+  }
+  .form-group input,
+  .form-group textarea {
+    width: 100%;
+    padding: 0.65rem 0.85rem;
+    border: 2px solid var(--cream-dark);
+    border-radius: 8px;
+    font-family: 'Lato', sans-serif;
+    font-size: 0.95rem;
+    color: var(--text);
+    background: var(--cream);
+    transition: border-color 0.15s;
+    outline: none;
+  }
+  .form-group input:focus,
+  .form-group textarea:focus { border-color: var(--green-mid); background: var(--white); }
+  .form-group textarea { resize: vertical; min-height: 80px; }
+
+  /* Order summary sidebar */
+  .order-summary {
+    background: var(--white);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    box-shadow: var(--shadow);
+    position: sticky;
+    top: 80px;
+  }
+  .order-summary h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.1rem;
+    color: var(--green-dark);
+    margin-bottom: 1rem;
+  }
+  .order-line {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.65rem 0;
+    border-bottom: 1px solid var(--cream-dark);
+    font-size: 0.88rem;
+  }
+  .order-line img {
+    width: 44px;
+    height: 44px;
+    object-fit: cover;
+    border-radius: 5px;
+    background: var(--cream-dark);
+    flex-shrink: 0;
+  }
+  .order-line .line-info { flex: 1; }
+  .order-line .line-name { font-weight: 700; color: var(--green-dark); }
+  .order-line .line-meta { font-size: 0.8rem; color: var(--text-muted); }
+  .order-line .line-price { font-weight: 700; white-space: nowrap; }
+
+  .summary-totals { margin-top: 1rem; }
+  .summary-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.92rem;
+    margin-bottom: 0.5rem;
+    color: var(--text-muted);
+  }
+  .summary-row.total {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--green-dark);
+    border-top: 2px solid var(--cream-dark);
+    padding-top: 0.75rem;
+    margin-top: 0.5rem;
+  }
+
+  .square-note {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    text-align: center;
+    margin-top: 0.75rem;
+    line-height: 1.5;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<h1 class="page-title">Checkout</h1>
+<p class="page-sub">You'll be taken to Square to complete payment securely.</p>
+
+<div class="checkout-grid">
+
+  <!-- Form -->
+  <div>
+    <form method="post" class="form-card">
+      {% csrf_token %}
+      <h2>Your details</h2>
+
+      <div class="form-group">
+        <label for="name">Full Name</label>
+        <input type="text" id="name" name="name" required placeholder="Jane Smith" value="{{ request.POST.name }}">
+      </div>
+      <div class="form-group">
+        <label for="email">Email Address</label>
+        <input type="email" id="email" name="email" required placeholder="jane@example.com" value="{{ request.POST.email }}">
+      </div>
+      <div class="form-group">
+        <label for="notes">Notes <span style="font-weight:400;text-transform:none;">(optional)</span></label>
+        <textarea id="notes" name="notes" placeholder="Any special requests or notes for your order…">{{ request.POST.notes }}</textarea>
+      </div>
+
+      <button type="submit" class="btn btn-gold btn-full" style="font-size:1rem; padding:0.9rem; margin-top:0.5rem;">
+        Pay with Square →
+      </button>
+      <p class="square-note">
+        🔒 Payments are processed securely by Square.<br>
+        You'll be redirected to complete payment, then returned here.
+      </p>
+    </form>
+  </div>
+
+  <!-- Order summary -->
+  <div class="order-summary-col">
+    <div class="order-summary">
+      <h2>Order Summary</h2>
+      {% for item in cart %}
+        <div class="order-line">
+          <img
+            src="{% static 'store/img/' %}{{ item.image }}"
+            alt="{{ item.name }}"
+            onerror="this.style.display='none'"
+          >
+          <div class="line-info">
+            <div class="line-name">{{ item.name }}</div>
+            <div class="line-meta">{{ item.colour }} · Size {{ item.size }} · Qty {{ item.qty }}</div>
+          </div>
+          <div class="line-price">${{ item.price|floatformat:0 }}</div>
+        </div>
+      {% endfor %}
+      <div class="summary-totals">
+        <div class="summary-row">
+          <span>Subtotal</span>
+          <span>${{ subtotal }}</span>
+        </div>
+        <div class="summary-row">
+          <span>Shipping</span>
+          <span style="color:var(--green-mid);">Pickup</span>
+        </div>
+        <div class="summary-row total">
+          <span>Total</span>
+          <span>${{ total }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

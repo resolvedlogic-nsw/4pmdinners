@@ -1,0 +1,364 @@
+{% extends "store/base.html" %}
+{% load static store_tags %}
+{% block title %}{{ product.name }} – Lighthouse Merch{% endblock %}
+{% block nav_shop %}active{% endblock %}
+
+{% block extra_head %}
+<style>
+  .detail-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2.5rem;
+    align-items: start;
+  }
+  @media (max-width: 700px) {
+    .detail-grid { grid-template-columns: 1fr; }
+  }
+
+  /* Image panel */
+  .detail-img-wrap {
+    background: var(--cream-dark);
+    border-radius: var(--radius);
+    aspect-ratio: 1 / 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    position: relative;
+  }
+  .detail-img-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: opacity 0.2s;
+  }
+  .detail-img-placeholder {
+    font-size: 6rem;
+    opacity: 0.3;
+  }
+
+  /* Info panel */
+  .detail-name {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.75rem;
+    color: var(--green-dark);
+    margin-bottom: 0.25rem;
+  }
+  .detail-price {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--gold);
+    margin-bottom: 1.5rem;
+  }
+
+  .selector-label {
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    margin-bottom: 0.5rem;
+  }
+  .selector-label .selected-name {
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--text);
+    margin-left: 0.4rem;
+  }
+
+  /* Colour swatches */
+  .colour-swatches {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 1.5rem;
+  }
+  .swatch {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 2.5px solid transparent;
+    cursor: pointer;
+    transition: border-color 0.15s, transform 0.15s;
+    outline: none;
+    position: relative;
+  }
+  .swatch:hover { transform: scale(1.12); }
+  .swatch.active {
+    border-color: var(--green-dark);
+    box-shadow: 0 0 0 2px var(--white), 0 0 0 4px var(--green-dark);
+  }
+
+  /* Size buttons */
+  .size-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 1.5rem;
+  }
+  .size-btn {
+    min-width: 48px;
+    padding: 0.45rem 0.8rem;
+    border-radius: 6px;
+    border: 2px solid var(--cream-dark);
+    background: var(--white);
+    font-family: 'Lato', sans-serif;
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+    color: var(--text);
+    transition: border-color 0.15s, background 0.15s, color 0.15s;
+  }
+  .size-btn:hover { border-color: var(--green-light); }
+  .size-btn.active {
+    border-color: var(--green-dark);
+    background: var(--green-dark);
+    color: var(--white);
+  }
+
+  /* Qty */
+  .qty-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+  }
+  .qty-row .qty-ctrl {
+    display: flex;
+    align-items: center;
+    border: 2px solid var(--cream-dark);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .qty-btn {
+    background: none;
+    border: none;
+    width: 38px;
+    height: 38px;
+    font-size: 1.1rem;
+    cursor: pointer;
+    color: var(--green-dark);
+    font-weight: 700;
+    transition: background 0.15s;
+  }
+  .qty-btn:hover { background: var(--cream-dark); }
+  .qty-input {
+    width: 48px;
+    text-align: center;
+    border: none;
+    font-size: 1rem;
+    font-weight: 700;
+    font-family: 'Lato', sans-serif;
+    color: var(--text);
+    background: transparent;
+    outline: none;
+  }
+
+  .add-btn-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .validation-msg {
+    color: var(--error);
+    font-size: 0.85rem;
+    display: none;
+    margin-top: -0.5rem;
+    margin-bottom: 0.5rem;
+  }
+
+  /* Size guide link */
+  .size-guide-link {
+    font-size: 0.82rem;
+    color: var(--green-mid);
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    margin-bottom: 1.5rem;
+  }
+  .size-guide-link:hover { text-decoration: underline; }
+
+  .breadcrumb {
+    font-size: 0.83rem;
+    color: var(--text-muted);
+    margin-bottom: 1.5rem;
+  }
+  .breadcrumb a { color: var(--green-mid); text-decoration: none; }
+  .breadcrumb a:hover { text-decoration: underline; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="breadcrumb">
+  <a href="{% url 'store:product_list' %}">← Back to shop</a>
+</div>
+
+<div class="detail-grid">
+
+  <!-- Image -->
+  <div>
+    <div class="detail-img-wrap" id="product-img-wrap">
+      <img id="product-img" src="" alt="{{ product.name }}" style="display:none"
+           onerror="this.style.display='none'; document.getElementById('img-placeholder').style.display='flex'">
+      <span class="detail-img-placeholder" id="img-placeholder" style="display:flex">👕</span>
+    </div>
+  </div>
+
+  <!-- Info -->
+  <div>
+    <h1 class="detail-name">{{ product.name }}</h1>
+    <div class="detail-price" id="detail-price">—</div>
+
+    <!-- Colour -->
+    <div class="selector-label">
+      Colour <span class="selected-name" id="colour-name">– select below</span>
+    </div>
+    <div class="colour-swatches">
+      {% for colour, variant in product.variants.items %}
+        <button
+          class="swatch"
+          data-colour="{{ colour }}"
+          data-price="{{ variant.price }}"
+          data-image="{% static 'store/img/' %}{{ variant.image }}"
+          style="background: {{ colour_hex|getitem:colour|default:'#888' }}"
+          title="{{ colour }}"
+          aria-label="{{ colour }}"
+        ></button>
+      {% endfor %}
+    </div>
+
+    <!-- Size -->
+    <div class="selector-label">Size <span class="selected-name" id="size-name">– select below</span></div>
+    <div class="size-buttons">
+      {% for size in product.sizes %}
+        <button class="size-btn" data-size="{{ size }}">{{ size }}</button>
+      {% endfor %}
+    </div>
+    <a href="{% url 'store:size_chart' %}#{{ slug }}" class="size-guide-link">📏 Size Guide</a>
+
+    <!-- Qty -->
+    <div class="selector-label">Quantity</div>
+    <div class="qty-row">
+      <div class="qty-ctrl">
+        <button class="qty-btn" id="qty-minus">−</button>
+        <input class="qty-input" id="qty-input" type="number" value="1" min="1" max="20">
+        <button class="qty-btn" id="qty-plus">+</button>
+      </div>
+    </div>
+
+    <p class="validation-msg" id="validation-msg">Please select a colour and size.</p>
+
+    <div class="add-btn-row">
+      <button class="btn btn-gold btn-full" id="add-to-cart-btn" style="font-size:1rem; padding: 0.85rem;">
+        Add to Cart
+      </button>
+      <a href="{% url 'store:cart' %}" class="btn btn-outline btn-full">View Cart</a>
+    </div>
+
+    <p style="margin-top:1.25rem; font-size:0.82rem; color:var(--text-muted);">
+      🏠 Pickup at church &nbsp;·&nbsp; No shipping required
+    </p>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const VARIANTS = {{ variants_json|safe }};
+const STATIC_IMG_BASE = "{% static 'store/img/' %}";
+
+let selectedColour = null;
+let selectedSize = null;
+
+// Colour swatches
+document.querySelectorAll('.swatch').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.swatch').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    selectedColour = btn.dataset.colour;
+    document.getElementById('colour-name').textContent = selectedColour;
+
+    const price = btn.dataset.price;
+    document.getElementById('detail-price').textContent = '$' + price;
+
+    // Update image
+    const imgEl = document.getElementById('product-img');
+    const placeholder = document.getElementById('img-placeholder');
+    const imgSrc = btn.dataset.image;
+    if (imgSrc) {
+      imgEl.src = imgSrc;
+      imgEl.style.display = 'block';
+      placeholder.style.display = 'none';
+    }
+  });
+});
+
+// Size buttons
+document.querySelectorAll('.size-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.size-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    selectedSize = btn.dataset.size;
+    document.getElementById('size-name').textContent = selectedSize;
+  });
+});
+
+// Qty controls
+const qtyInput = document.getElementById('qty-input');
+document.getElementById('qty-minus').addEventListener('click', () => {
+  const v = parseInt(qtyInput.value);
+  if (v > 1) qtyInput.value = v - 1;
+});
+document.getElementById('qty-plus').addEventListener('click', () => {
+  const v = parseInt(qtyInput.value);
+  if (v < 20) qtyInput.value = v + 1;
+});
+
+// Add to cart
+document.getElementById('add-to-cart-btn').addEventListener('click', async () => {
+  const validMsg = document.getElementById('validation-msg');
+  if (!selectedColour || !selectedSize) {
+    validMsg.style.display = 'block';
+    return;
+  }
+  validMsg.style.display = 'none';
+
+  const qty = parseInt(qtyInput.value) || 1;
+  const btn = document.getElementById('add-to-cart-btn');
+  btn.disabled = true;
+  btn.textContent = 'Adding…';
+
+  try {
+    const resp = await fetch("{% url 'store:cart_add' %}", {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': '{{ csrf_token }}',
+      },
+      body: JSON.stringify({
+        slug: '{{ slug }}',
+        colour: selectedColour,
+        size: selectedSize,
+        qty: qty,
+      }),
+    });
+    const data = await resp.json();
+    if (data.ok) {
+      showToast('Added to cart ✓');
+      updateCartBadge(data.cart_count);
+    } else {
+      showToast(data.error || 'Could not add to cart', true);
+    }
+  } catch (e) {
+    showToast('Network error', true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Add to Cart';
+  }
+});
+</script>
+{% endblock %}

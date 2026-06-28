@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#1a3a2a">
+  <title>{% block title %}Lighthouse Merch{% endblock %}</title>
+  {% load static %}
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&family=Playfair+Display:wght@600&display=swap" rel="stylesheet">
+  <style>
+    /* ── Design tokens ── */
+    :root {
+      --green-dark:   #1a3a2a;
+      --green-mid:    #2c5f42;
+      --green-light:  #3d7a58;
+      --gold:         #c9a84c;
+      --gold-light:   #e2c97e;
+      --cream:        #f7f3ec;
+      --cream-dark:   #ede7db;
+      --text:         #1e2e27;
+      --text-muted:   #5a7060;
+      --white:        #ffffff;
+      --error:        #c0392b;
+      --radius:       10px;
+      --shadow:       0 2px 12px rgba(26,58,42,0.10);
+      --shadow-hover: 0 6px 24px rgba(26,58,42,0.18);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Lato', sans-serif;
+      background: var(--cream);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ── */
+    .site-header {
+      background: var(--green-dark);
+      padding: 0 1.5rem;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+    }
+    .site-header .inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 64px;
+      gap: 1rem;
+    }
+    .site-header .logo-wrap {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      text-decoration: none;
+    }
+    .site-header .logo-wrap img {
+      height: 36px;
+      width: auto;
+    }
+    .site-header .logo-text {
+      font-family: 'Playfair Display', serif;
+      color: var(--gold-light);
+      font-size: 1.1rem;
+      line-height: 1.2;
+    }
+    .site-header .logo-text span {
+      display: block;
+      font-family: 'Lato', sans-serif;
+      font-size: 0.7rem;
+      font-weight: 300;
+      color: rgba(255,255,255,0.6);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .header-nav {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+    .header-nav a {
+      color: rgba(255,255,255,0.8);
+      text-decoration: none;
+      font-size: 0.85rem;
+      padding: 0.4rem 0.75rem;
+      border-radius: 6px;
+      transition: background 0.15s, color 0.15s;
+    }
+    .header-nav a:hover { background: rgba(255,255,255,0.1); color: var(--white); }
+    .header-nav a.active { color: var(--gold-light); }
+
+    .cart-btn {
+      background: var(--gold);
+      color: var(--green-dark) !important;
+      font-weight: 700 !important;
+      padding: 0.4rem 1rem !important;
+      border-radius: 20px !important;
+      font-size: 0.85rem !important;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      transition: background 0.15s !important;
+    }
+    .cart-btn:hover { background: var(--gold-light) !important; }
+    .cart-count {
+      background: var(--green-dark);
+      color: var(--gold-light);
+      border-radius: 50%;
+      width: 20px; height: 20px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.72rem;
+      font-weight: 700;
+    }
+    .cart-count.hidden { display: none; }
+
+    /* ── Page shell ── */
+    .page-main {
+      flex: 1;
+      max-width: 1100px;
+      margin: 0 auto;
+      width: 100%;
+      padding: 2rem 1.5rem 4rem;
+    }
+
+    .page-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 2rem;
+      color: var(--green-dark);
+      margin-bottom: 0.25rem;
+    }
+    .page-sub {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      margin-bottom: 2rem;
+    }
+
+    /* ── Section heading ── */
+    .section-heading {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.3rem;
+      color: var(--green-dark);
+      border-bottom: 2px solid var(--gold);
+      padding-bottom: 0.4rem;
+      margin-bottom: 1.25rem;
+    }
+
+    /* ── Product grid ── */
+    .product-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 1.25rem;
+      margin-bottom: 3rem;
+    }
+    .product-card {
+      background: var(--white);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      text-decoration: none;
+      color: inherit;
+      display: flex;
+      flex-direction: column;
+      transition: box-shadow 0.2s, transform 0.2s;
+    }
+    .product-card:hover {
+      box-shadow: var(--shadow-hover);
+      transform: translateY(-3px);
+    }
+    .product-card .img-wrap {
+      background: var(--cream-dark);
+      aspect-ratio: 1 / 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    .product-card .img-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .product-card .img-placeholder {
+      font-size: 3rem;
+      color: var(--text-muted);
+      opacity: 0.4;
+    }
+    .product-card .card-body {
+      padding: 1rem;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+    .product-card .card-name {
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: var(--green-dark);
+    }
+    .product-card .card-from {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+    .product-card .card-price {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--gold);
+      margin-top: auto;
+      padding-top: 0.5rem;
+    }
+    .colour-dots {
+      display: flex;
+      gap: 5px;
+      flex-wrap: wrap;
+      margin-top: 0.3rem;
+    }
+    .colour-dot {
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      border: 1.5px solid rgba(0,0,0,0.12);
+      flex-shrink: 0;
+    }
+
+    /* ── Buttons ── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.4rem;
+      padding: 0.65rem 1.4rem;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      cursor: pointer;
+      border: none;
+      text-decoration: none;
+      transition: background 0.15s, transform 0.1s;
+      font-family: 'Lato', sans-serif;
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn-primary {
+      background: var(--green-dark);
+      color: var(--white);
+    }
+    .btn-primary:hover { background: var(--green-mid); }
+    .btn-gold {
+      background: var(--gold);
+      color: var(--green-dark);
+    }
+    .btn-gold:hover { background: var(--gold-light); }
+    .btn-outline {
+      background: transparent;
+      color: var(--green-dark);
+      border: 2px solid var(--green-dark);
+    }
+    .btn-outline:hover { background: var(--green-dark); color: var(--white); }
+    .btn-sm { padding: 0.4rem 0.85rem; font-size: 0.82rem; }
+    .btn-danger { background: var(--error); color: var(--white); }
+    .btn-danger:hover { background: #a93226; }
+    .btn-full { width: 100%; }
+
+    /* ── Messages ── */
+    .messages { list-style: none; margin-bottom: 1.25rem; }
+    .messages li {
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      margin-bottom: 0.5rem;
+      font-size: 0.9rem;
+    }
+    .messages .error   { background: #fdecea; color: #922b21; border-left: 4px solid #c0392b; }
+    .messages .success { background: #eafaf1; color: #1e8449; border-left: 4px solid #27ae60; }
+    .messages .info    { background: #eaf4fb; color: #1a5276; border-left: 4px solid #2980b9; }
+
+    /* ── Toast ── */
+    #toast {
+      position: fixed;
+      bottom: 1.5rem;
+      left: 50%;
+      transform: translateX(-50%) translateY(120%);
+      background: var(--green-dark);
+      color: var(--white);
+      padding: 0.75rem 1.5rem;
+      border-radius: 30px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+      z-index: 9999;
+      transition: transform 0.3s cubic-bezier(.34,1.56,.64,1);
+      white-space: nowrap;
+    }
+    #toast.show { transform: translateX(-50%) translateY(0); }
+    #toast.error { background: var(--error); }
+
+    /* ── Footer ── */
+    .site-footer {
+      background: var(--green-dark);
+      color: rgba(255,255,255,0.55);
+      text-align: center;
+      font-size: 0.78rem;
+      padding: 1.25rem;
+    }
+    .site-footer a { color: var(--gold-light); text-decoration: none; }
+
+    /* ── Responsive ── */
+    @media (max-width: 600px) {
+      .header-nav .hide-mobile { display: none; }
+      .page-main { padding: 1.25rem 1rem 3rem; }
+    }
+  </style>
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+<header class="site-header">
+  <div class="inner">
+    <a href="/" class="logo-wrap">
+      <img src="/static/logo.png" alt="Lighthouse Church" onerror="this.style.display='none'">
+      <div class="logo-text">
+        Lighthouse Church
+        <span>Merchandise</span>
+      </div>
+    </a>
+    <nav class="header-nav">
+      <a href="{% url 'store:product_list' %}" class="hide-mobile {% block nav_shop %}{% endblock %}">Shop</a>
+      <a href="{% url 'store:size_chart' %}" class="hide-mobile {% block nav_sizes %}{% endblock %}">Size Guide</a>
+      <a href="{% url 'store:cart' %}" class="cart-btn" id="cart-nav-btn">
+        🛒
+        <span class="cart-count {% if cart_count == 0 %}hidden{% endif %}" id="cart-count-badge">{{ cart_count }}</span>
+      </a>
+    </nav>
+  </div>
+</header>
+
+<main class="page-main">
+  {% if messages %}
+    <ul class="messages">
+      {% for message in messages %}
+        <li class="{{ message.tags }}">{{ message }}</li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+
+  {% block content %}{% endblock %}
+</main>
+
+<footer class="site-footer">
+  Lighthouse Church &nbsp;·&nbsp; <a href="/">my.lighthouse.net.au</a>
+</footer>
+
+<div id="toast"></div>
+
+<script>
+function showToast(msg, isError=false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = isError ? 'error' : '';
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+function updateCartBadge(count) {
+  const badge = document.getElementById('cart-count-badge');
+  if (!badge) return;
+  badge.textContent = count;
+  badge.classList.toggle('hidden', count === 0);
+}
+</script>
+
+{% block extra_js %}{% endblock %}
+</body>
+</html>
