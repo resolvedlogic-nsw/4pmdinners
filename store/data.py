@@ -96,10 +96,10 @@ PRODUCTS = {
         },
     },
     'kids-hoodies': {
-        'name': "Kid's Hoodies",
+        'name': "Kids and Teens Hoodies",
         'category': 'kids',
         'size_chart': 'kids-hoodies',
-        'sizes': ['2', '4', '6'],
+        'sizes': ['2', '4', '6', '8', '10', '12', '14', '16',],
         'variants': {
             'Navy':      {'price': 30, 'image': 'kh-navy.png'},
             'Grey Marle':{'price': 30, 'image': 'kh-grey.png'},
@@ -108,10 +108,10 @@ PRODUCTS = {
         },
     },
     'kids-tshirts': {
-        'name': "Kid's T-Shirts",
+        'name': "Kids and Teens T-Shirts",
         'category': 'kids',
         'size_chart': 'kids-tshirts',
-        'sizes': ['2', '4', '6'],
+        'sizes': ['2', '4', '6', '8', '10', '12', '14', '16',],
         'variants': {
             'Navy':    {'price': 20, 'image': 'kt-navy.png'},
             'Black':   {'price': 20, 'image': 'kt-black.png'},
@@ -178,19 +178,19 @@ SIZE_CHARTS = {
         },
     },
     'kids-hoodies': {
-        'name': "Kid's Hoodies",
-        'sizes': ['2', '4', '6'],
+        'name': "Kids and Teens Hoodies",
+        'sizes': ['2', '4', '6', '8', '10', '12'],
         'measurements': {
-            'Body Width (cm)':  [33, 36, 39],
-            'Body Length (cm)': [41, 45, 50],
+            'Body Width (cm)':  [33, 36, 39, 42, 45, 48],
+            'Body Length (cm)': [41, 45, 50, 54, 58, 61],
         },
     },
     'kids-tshirts': {
-        'name': "Kid's T-Shirts",
-        'sizes': ['2', '4', '6'],
+        'name': "Kids and Teens T-Shirts",
+        'sizes': ['2', '4', '6', '8', '10', '12', '14', '16'],
         'measurements': {
-            'Body Width (cm)':  [31, 34, 37],
-            'Body Length (cm)': [42, 46, 50],
+            'Body Width (cm)':  [31, 34, 37, 39.5, 42, 44.5, 47, 49.5],
+            'Body Length (cm)': [42, 46, 50, 54, 58, 62, 66, 70],
         },
     },
 }
