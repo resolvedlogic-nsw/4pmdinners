@@ -2,12 +2,10 @@
 import json
 import uuid
 import os
-import square.client as square_module
-from square.client import Client
+from square.client import Square, SquareEnvironment
 from django.shortcuts import render, redirect
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
-from django.views.decorators.csrf import csrf_exempt
 from django.contrib import messages
 
 from .data import PRODUCTS, CATEGORIES, SIZE_CHARTS, COLOUR_HEX
@@ -18,9 +16,11 @@ from .data import PRODUCTS, CATEGORIES, SIZE_CHARTS, COLOUR_HEX
 # ---------------------------------------------------------------------------
 
 def get_square_client():
-    return Client(
-        access_token=os.environ.get('SQUARE_ACCESS_TOKEN'),
-        environment=os.environ.get('SQUARE_ENVIRONMENT', 'production'),
+    env = os.environ.get('SQUARE_ENVIRONMENT', 'production').lower()
+    square_env = SquareEnvironment.PRODUCTION if env == 'production' else SquareEnvironment.SANDBOX
+    return Square(
+        token=os.environ.get('SQUARE_ACCESS_TOKEN'),
+        environment=square_env,
     )
 
 
@@ -53,7 +53,6 @@ def product_list(request):
         if items:
             grouped[cat_name] = items
 
-    # Attach first available colour/image for card preview
     for cat_name, items in grouped.items():
         for item in items:
             variants = item['variants']
@@ -127,7 +126,6 @@ def cart_add(request):
     variant = product['variants'][colour]
     cart = get_cart(request)
 
-    # Find existing matching line
     for item in cart:
         if item['slug'] == slug and item['colour'] == colour and item['size'] == size:
             item['qty'] += qty
@@ -151,7 +149,6 @@ def cart_add(request):
 
 @require_POST
 def cart_update(request):
-    """Update qty or remove a line. Expects JSON {index, qty} where qty=0 removes."""
     try:
         data = json.loads(request.body)
         index = int(data.get('index'))
@@ -212,7 +209,7 @@ def checkout(request):
                 **totals,
             })
 
-        # Build Square line items
+        # Build line items
         line_items = []
         note_parts = []
         for item in cart:
@@ -222,7 +219,7 @@ def checkout(request):
                 'name': desc,
                 'quantity': str(item['qty']),
                 'base_price_money': {
-                    'amount': int(item['price'] * 100),  # cents
+                    'amount': int(item['price'] * 100),
                     'currency': 'AUD',
                 },
             })
@@ -232,46 +229,35 @@ def checkout(request):
             order_note += f". Notes: {notes}"
         order_note += ". Items: " + "; ".join(note_parts)
 
-        idempotency_key = str(uuid.uuid4())
         location_id = os.environ.get('SQUARE_LOCATION_ID')
-
-        # Store buyer info in session for success page
         request.session['store_buyer'] = {'name': name, 'email': email}
 
         try:
             client = get_square_client()
-            result = client.checkout.create_payment_link({
-                'idempotency_key': idempotency_key,
-                'order': {
-                    'order': {
-                        'location_id': location_id,
-                        'line_items': line_items,
-                        'metadata': {
-                            'buyer_name': name,
-                            'buyer_email': email,
-                        },
+            result = client.checkout.payment_links.create(
+                idempotency_key=str(uuid.uuid4()),
+                order={
+                    'location_id': location_id,
+                    'line_items': line_items,
+                    'metadata': {
+                        'buyer_name': name,
+                        'buyer_email': email,
                     },
                 },
-                'checkout_options': {
+                checkout_options={
                     'redirect_url': request.build_absolute_uri('/store/success/'),
-                    'merchant_support_email': email,
                 },
-                'pre_populated_data': {
+                pre_populated_data={
                     'buyer_email': email,
                 },
-            })
+            )
 
-            if result.is_success():
-                payment_link = result.body['payment_link']
-                save_cart(request, [])  # clear cart on redirect
-                return redirect(payment_link['url'])
-            else:
-                errors = result.errors
-                error_msg = '; '.join(e.get('detail', 'Unknown error') for e in errors)
-                messages.error(request, f'Payment could not be started: {error_msg}')
+            url = result.payment_link.url
+            save_cart(request, [])
+            return redirect(url)
 
         except Exception as e:
-            messages.error(request, f'An error occurred: {str(e)}')
+            messages.error(request, f'Payment could not be started: {str(e)}')
 
     return render(request, 'store/checkout.html', {
         'cart': cart,
