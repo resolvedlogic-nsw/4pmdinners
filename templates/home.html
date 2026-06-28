@@ -28,20 +28,20 @@
     {# --- DATE WINDOWS --- #}
     {% if current_time < "2026-07-06 00:00" %}
         {# NORMAL PERIOD #}
-        <a href="https://www.jotform.com/app/223207938331858" class="branch-card-image">
+        <a href="/store/" class="branch-card-image">
             <img src="{% static 'merch.jpg' %}" alt="Merch">
         </a>
 
     {% elif current_time < "2026-07-12 00:00" %}
         {# FINAL WEEK #}
-        <a href="https://www.jotform.com/app/223207938331858"    class="branch-card-image">
+        <a href="/store/"    class="branch-card-image">
     <img src="{% static 'merchweek.jpg' %}" alt="Merch">
             
         </a>
 
     {% elif current_time < "2026-07-12 23:59" %}
         {# FINAL DAY #}
-        <a href="https://www.jotform.com/app/223207938331858"    class="branch-card-image">
+        <a href="/store/"    class="branch-card-image">
     <img src="{% static 'merchday.jpg' %}" alt="Merch">
         </a>
 
