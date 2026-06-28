@@ -125,7 +125,7 @@ PRODUCTS = {
 CATEGORIES = [
     ('mens',   "Men's"),
     ('womens', "Women's"),
-    ('kids',   "Kids"),
+    ('kids',   "Kids and Teens"),
 ]
 
 SIZE_CHARTS = {
