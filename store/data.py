@@ -71,6 +71,16 @@ PRODUCTS = {
             'Pistachio': {'price': 45, 'image': 'wh-pistachio.png'},
         },
     },
+    'womens-zipper-hoodies': {
+        'name': "Women's Zipper Hoodies",
+        'category': 'womens',
+        'size_chart': 'womens-zipper-hoodies',
+        'sizes': ['XS', 'S', 'M', 'L', 'XL', 'XXL'],
+        'variants': {
+            'Black':     {'price': 45, 'image': 'wz-black.png'},
+            'Grey Marle':{'price': 45, 'image': 'wz-grey.png'},
+        },
+    },
     'womens-slim-tshirts': {
         'name': "Women's Slim Fit T-Shirts",
         'category': 'womens',
@@ -96,10 +106,10 @@ PRODUCTS = {
         },
     },
     'kids-hoodies': {
-        'name': "Kids and Teens Hoodies",
+        'name': "Kid's Hoodies",
         'category': 'kids',
         'size_chart': 'kids-hoodies',
-        'sizes': ['2', '4', '6', '8', '10', '12', '14', '16',],
+        'sizes': ['2', '4', '6'],
         'variants': {
             'Navy':      {'price': 30, 'image': 'kh-navy.png'},
             'Grey Marle':{'price': 30, 'image': 'kh-grey.png'},
@@ -108,10 +118,10 @@ PRODUCTS = {
         },
     },
     'kids-tshirts': {
-        'name': "Kids and Teens T-Shirts",
+        'name': "Kid's T-Shirts",
         'category': 'kids',
         'size_chart': 'kids-tshirts',
-        'sizes': ['2', '4', '6', '8', '10', '12', '14', '16',],
+        'sizes': ['2', '4', '6'],
         'variants': {
             'Navy':    {'price': 20, 'image': 'kt-navy.png'},
             'Black':   {'price': 20, 'image': 'kt-black.png'},
@@ -125,7 +135,7 @@ PRODUCTS = {
 CATEGORIES = [
     ('mens',   "Men's"),
     ('womens', "Women's"),
-    ('kids',   "Kids and Teens"),
+    ('kids',   "Kids"),
 ]
 
 SIZE_CHARTS = {
@@ -161,6 +171,14 @@ SIZE_CHARTS = {
             'Body Length (cm)': [62, 65, 68, 72, 75, 77, 79],
         },
     },
+    'womens-zipper-hoodies': {
+        'name': "Women's Zipper Hoodies",
+        'sizes': ['XS', 'S', 'M', 'L', 'XL', 'XXL'],
+        'measurements': {
+            'Body Width (cm)':  [58.5, 61, 63, 65.5, 68, 70.5],
+            'Body Length (cm)': [63, 64, 65, 66, 67, 68],
+        },
+    },
     'womens-maple-tshirts': {
         'name': "Women's Maple T-Shirts",
         'sizes': ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'],
@@ -178,19 +196,19 @@ SIZE_CHARTS = {
         },
     },
     'kids-hoodies': {
-        'name': "Kids and Teens Hoodies",
-        'sizes': ['2', '4', '6', '8', '10', '12'],
+        'name': "Kid's Hoodies",
+        'sizes': ['2', '4', '6'],
         'measurements': {
-            'Body Width (cm)':  [33, 36, 39, 42, 45, 48],
-            'Body Length (cm)': [41, 45, 50, 54, 58, 61],
+            'Body Width (cm)':  [33, 36, 39],
+            'Body Length (cm)': [41, 45, 50],
         },
     },
     'kids-tshirts': {
-        'name': "Kids and Teens T-Shirts",
-        'sizes': ['2', '4', '6', '8', '10', '12', '14', '16'],
+        'name': "Kid's T-Shirts",
+        'sizes': ['2', '4', '6'],
         'measurements': {
-            'Body Width (cm)':  [31, 34, 37, 39.5, 42, 44.5, 47, 49.5],
-            'Body Length (cm)': [42, 46, 50, 54, 58, 62, 66, 70],
+            'Body Width (cm)':  [31, 34, 37],
+            'Body Length (cm)': [42, 46, 50],
         },
     },
 }

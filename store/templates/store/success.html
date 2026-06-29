@@ -1,0 +1,76 @@
+{% extends "store/base.html" %}
+{% block title %}Order Confirmed – Lighthouse Merch{% endblock %}
+
+{% block extra_head %}
+<style>
+  .success-wrap {
+    max-width: 520px;
+    margin: 3rem auto;
+    text-align: center;
+  }
+  .success-icon {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+    animation: pop 0.4s cubic-bezier(.34,1.56,.64,1) both;
+  }
+  @keyframes pop {
+    from { transform: scale(0.5); opacity: 0; }
+    to   { transform: scale(1);   opacity: 1; }
+  }
+  .success-card {
+    background: var(--white);
+    border-radius: var(--radius);
+    padding: 2.5rem 2rem;
+    box-shadow: var(--shadow);
+    margin-bottom: 1.5rem;
+  }
+  .success-card h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.9rem;
+    color: var(--green-dark);
+    margin-bottom: 0.75rem;
+  }
+  .success-card p {
+    color: var(--text-muted);
+    line-height: 1.65;
+    margin-bottom: 0.75rem;
+    font-size: 0.95rem;
+  }
+  .success-card .name-highlight {
+    color: var(--green-dark);
+    font-weight: 700;
+  }
+  .pickup-note {
+    background: #eafaf1;
+    border-left: 4px solid #27ae60;
+    border-radius: 6px;
+    padding: 0.85rem 1rem;
+    font-size: 0.88rem;
+    color: #1e6b3f;
+    text-align: left;
+    margin: 1.25rem 0;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="success-wrap">
+  <div class="success-icon">✅</div>
+  <div class="success-card">
+    <h1>Order Confirmed!</h1>
+    {% if buyer.name %}
+      <p>Thanks <span class="name-highlight">{{ buyer.name }}</span> — your order has been received.</p>
+    {% else %}
+      <p>Thanks — your order has been received.</p>
+    {% endif %}
+    {% if buyer.email %}
+      <p>A confirmation email from Square will be sent to <strong>{{ buyer.email }}</strong>.</p>
+    {% endif %}
+    <div class="pickup-note">
+      🏠 <strong>Pickup reminder:</strong> Your order will be available to collect at church. Keep an eye out for a message from the team about when it's ready.
+    </div>
+    <p>If you have any questions, speak to a volunteer at the kiosk on Sunday.</p>
+  </div>
+  <a href="{% url 'store:product_list' %}" class="btn btn-primary">Back to Shop</a>
+</div>
+{% endblock %}

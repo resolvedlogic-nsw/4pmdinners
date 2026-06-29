@@ -1,0 +1,63 @@
+{% extends "store/base.html" %}
+{% load static %}
+{% block title %}Shop – Lighthouse Merch{% endblock %}
+{% block nav_shop %}active{% endblock %}
+
+{% block content %}
+<h1 class="page-title">Lighthouse Merch</h1>
+<p class="page-sub">Pickup available at church &nbsp;·&nbsp; <a href="{% url 'store:size_chart' %}" style="color:var(--green-mid)">Size Guide →</a></p>
+
+{% for category, products in grouped.items %}
+  <h2 class="section-heading">{{ category }}</h2>
+  <div class="product-grid">
+    {% for product in products %}
+      <a class="product-card" href="{% url 'store:product_detail' product.slug %}">
+        <div class="img-wrap">
+          {% if product.preview_image %}
+            <img
+              src="{% static 'store/img/' %}{{ product.preview_image }}"
+              alt="{{ product.name }}"
+              onerror="this.parentElement.innerHTML='<span class=\'img-placeholder\'>👕</span>'"
+            >
+          {% else %}
+            <span class="img-placeholder">👕</span>
+          {% endif %}
+        </div>
+        <div class="card-body">
+          <div class="card-name">{{ product.name }}</div>
+          <div class="colour-dots">
+            {% for colour, variant in product.variants.items %}
+              <span class="colour-dot" title="{{ colour }}" style="background:{{ variant.hex|default:'#888' }}"></span>
+            {% endfor %}
+          </div>
+          {% if product.price_from %}
+            <div class="card-price">
+              {% if product.variants|length > 1 %}from {% endif %}
+              ${{ product.price_from }}
+            </div>
+          {% endif %}
+        </div>
+      </a>
+    {% endfor %}
+  </div>
+{% endfor %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Inject colour hex values for dots via a data pass from view
+// We do this inline for each card since templates can't call Python dicts easily
+document.querySelectorAll('.colour-dot').forEach(dot => {
+  // Colour dots get hex from title via a lookup table baked in here
+  const HEX = {
+    'Camel': '#C19A6B', 'Army': '#4B5320', 'Ecru': '#F0E6CA',
+    'Navy': '#001F5B', 'Black': '#1a1a1a', 'Grey Marle': '#9E9E9E',
+    'Sage': '#8FAF8A', 'White': '#F5F5F5', 'Bone': '#E8DCC8',
+    'Pistachio': '#93C572', 'Pink': '#F4A7B9', 'Burgundy': '#800020',
+    'Carolina Blue': '#56A0D3', 'Red': '#C0392B',
+  };
+  const name = dot.getAttribute('title');
+  if (HEX[name]) dot.style.background = HEX[name];
+});
+</script>
+{% endblock %}

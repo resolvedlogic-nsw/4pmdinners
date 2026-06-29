@@ -1,0 +1,48 @@
+{% extends "store/base.html" %}
+{% block title %}Payment Cancelled – Lighthouse Merch{% endblock %}
+
+{% block extra_head %}
+<style>
+  .cancel-wrap {
+    max-width: 500px;
+    margin: 3rem auto;
+    text-align: center;
+  }
+  .cancel-card {
+    background: var(--white);
+    border-radius: var(--radius);
+    padding: 2.5rem 2rem;
+    box-shadow: var(--shadow);
+    margin-bottom: 1.5rem;
+  }
+  .cancel-icon { font-size: 3.5rem; margin-bottom: 1rem; }
+  .cancel-card h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.75rem;
+    color: var(--green-dark);
+    margin-bottom: 0.75rem;
+  }
+  .cancel-card p {
+    color: var(--text-muted);
+    line-height: 1.65;
+    font-size: 0.95rem;
+    margin-bottom: 0.75rem;
+  }
+  .btn-row { display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="cancel-wrap">
+  <div class="cancel-card">
+    <div class="cancel-icon">↩️</div>
+    <h1>Payment Cancelled</h1>
+    <p>No payment was taken. Your cart is still saved if you'd like to try again.</p>
+    <p>If you had trouble completing payment, please speak to a volunteer at the kiosk on Sunday.</p>
+  </div>
+  <div class="btn-row">
+    <a href="{% url 'store:checkout' %}" class="btn btn-gold">Try Again</a>
+    <a href="{% url 'store:cart' %}" class="btn btn-outline">Back to Cart</a>
+  </div>
+</div>
+{% endblock %}

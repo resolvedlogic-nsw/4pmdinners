@@ -1,0 +1,254 @@
+{% extends "store/base.html" %}
+{% load static %}
+{% block title %}Your Cart – Lighthouse Merch{% endblock %}
+
+{% block extra_head %}
+<style>
+  .cart-table-wrap { overflow-x: auto; margin-bottom: 2rem; }
+  table { width: 100%; border-collapse: collapse; }
+  th {
+    text-align: left;
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-muted);
+    border-bottom: 2px solid var(--cream-dark);
+    padding: 0.5rem 0.75rem;
+  }
+  td {
+    padding: 1rem 0.75rem;
+    border-bottom: 1px solid var(--cream-dark);
+    vertical-align: middle;
+  }
+  .item-img {
+    width: 60px;
+    height: 60px;
+    object-fit: cover;
+    border-radius: 6px;
+    background: var(--cream-dark);
+  }
+  .item-img-placeholder {
+    width: 60px;
+    height: 60px;
+    background: var(--cream-dark);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+  }
+  .item-name { font-weight: 700; font-size: 0.95rem; color: var(--green-dark); }
+  .item-meta { font-size: 0.82rem; color: var(--text-muted); margin-top: 0.2rem; }
+
+  .qty-inline { display: flex; align-items: center; gap: 0.4rem; }
+  .qty-inline input {
+    width: 48px;
+    text-align: center;
+    border: 2px solid var(--cream-dark);
+    border-radius: 6px;
+    padding: 0.3rem;
+    font-family: 'Lato', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 700;
+  }
+  .qty-update-btn {
+    background: none;
+    border: 1px solid var(--cream-dark);
+    border-radius: 5px;
+    padding: 0.3rem 0.55rem;
+    font-size: 0.78rem;
+    cursor: pointer;
+    color: var(--text-muted);
+    font-family: 'Lato', sans-serif;
+  }
+  .qty-update-btn:hover { border-color: var(--green-mid); color: var(--green-dark); }
+
+  .remove-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 1.1rem;
+    padding: 0.3rem;
+    border-radius: 4px;
+    transition: color 0.15s;
+  }
+  .remove-btn:hover { color: var(--error); }
+
+  .cart-summary {
+    background: var(--white);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    box-shadow: var(--shadow);
+    max-width: 380px;
+    margin-left: auto;
+  }
+  .summary-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.95rem;
+    margin-bottom: 0.6rem;
+  }
+  .summary-total {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--green-dark);
+    border-top: 2px solid var(--cream-dark);
+    padding-top: 0.75rem;
+    margin-top: 0.5rem;
+  }
+  .empty-cart {
+    text-align: center;
+    padding: 4rem 1rem;
+  }
+  .empty-cart .icon { font-size: 3.5rem; margin-bottom: 1rem; opacity: 0.4; }
+  .empty-cart p { color: var(--text-muted); margin-bottom: 1.5rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<h1 class="page-title">Your Cart</h1>
+
+{% if cart %}
+  <div class="cart-table-wrap">
+    <table id="cart-table">
+      <thead>
+        <tr>
+          <th></th>
+          <th>Item</th>
+          <th>Price</th>
+          <th>Qty</th>
+          <th>Subtotal</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in cart %}
+        <tr data-index="{{ forloop.counter0 }}" id="row-{{ forloop.counter0 }}">
+          <td>
+            <img
+              class="item-img"
+              src="{% static 'store/img/' %}{{ item.image }}"
+              alt="{{ item.name }}"
+              onerror="this.outerHTML='<div class=\'item-img-placeholder\'>👕</div>'"
+            >
+          </td>
+          <td>
+            <div class="item-name">{{ item.name }}</div>
+            <div class="item-meta">{{ item.colour }} · Size {{ item.size }}</div>
+          </td>
+          <td>${{ item.price }}</td>
+          <td>
+            <div class="qty-inline">
+              <input
+                type="number"
+                value="{{ item.qty }}"
+                min="1"
+                max="20"
+                class="cart-qty-input"
+                data-index="{{ forloop.counter0 }}"
+              >
+              <button class="qty-update-btn" data-index="{{ forloop.counter0 }}">Update</button>
+            </div>
+          </td>
+          <td class="row-subtotal" data-price="{{ item.price }}">${{ item.price|floatformat:0 }}</td>
+          <td>
+            <button class="remove-btn" data-index="{{ forloop.counter0 }}" title="Remove">✕</button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="cart-summary">
+    <div class="summary-row">
+      <span>Subtotal</span>
+      <span id="summary-subtotal">${{ subtotal }}</span>
+    </div>
+    <div class="summary-row">
+      <span>Shipping</span>
+      <span style="color:var(--green-mid); font-weight:600;">Pickup at church</span>
+    </div>
+    <div class="summary-row summary-total">
+      <span>Total</span>
+      <span id="summary-total">${{ total }}</span>
+    </div>
+    <a href="{% url 'store:checkout' %}" class="btn btn-gold btn-full" style="margin-top:1rem; font-size:1rem; padding:0.85rem;">
+      Proceed to Checkout →
+    </a>
+    <a href="{% url 'store:product_list' %}" class="btn btn-outline btn-full" style="margin-top:0.65rem;">
+      Continue Shopping
+    </a>
+  </div>
+
+{% else %}
+  <div class="empty-cart">
+    <div class="icon">🛒</div>
+    <p>Your cart is empty.</p>
+    <a href="{% url 'store:product_list' %}" class="btn btn-primary">Browse the shop</a>
+  </div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const CSRF = '{{ csrf_token }}';
+
+async function updateCart(index, qty) {
+  const resp = await fetch("{% url 'store:cart_update' %}", {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+    body: JSON.stringify({ index, qty }),
+  });
+  return await resp.json();
+}
+
+function reloadIfEmpty(cartCount) {
+  if (cartCount === 0) { location.reload(); }
+}
+
+// Update qty buttons
+document.querySelectorAll('.qty-update-btn').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    const index = parseInt(btn.dataset.index);
+    const input = document.querySelector(`.cart-qty-input[data-index="${index}"]`);
+    const qty = parseInt(input.value);
+    if (!qty || qty < 1) return;
+
+    btn.textContent = '…';
+    const data = await updateCart(index, qty);
+    if (data.ok) {
+      updateCartBadge(data.cart_count);
+      // Update subtotal cell
+      const row = document.getElementById(`row-${index}`);
+      const price = parseFloat(row.querySelector('.row-subtotal').dataset.price);
+      row.querySelector('.row-subtotal').textContent = '$' + (price * qty).toFixed(0);
+      document.getElementById('summary-subtotal').textContent = '$' + data.subtotal;
+      document.getElementById('summary-total').textContent = '$' + data.total;
+      reloadIfEmpty(data.cart_count);
+    }
+    btn.textContent = 'Update';
+  });
+});
+
+// Remove buttons
+document.querySelectorAll('.remove-btn').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    const index = parseInt(btn.dataset.index);
+    btn.textContent = '…';
+    const data = await updateCart(index, 0);
+    if (data.ok) {
+      updateCartBadge(data.cart_count);
+      if (data.cart_count === 0) {
+        location.reload();
+      } else {
+        // Re-index — easiest is full reload since indices shift
+        location.reload();
+      }
+    }
+  });
+});
+</script>
+{% endblock %}

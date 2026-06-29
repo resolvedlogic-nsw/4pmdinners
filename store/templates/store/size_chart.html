@@ -1,0 +1,136 @@
+{% extends "store/base.html" %}
+{% block title %}Size Guide – Lighthouse Merch{% endblock %}
+{% block nav_sizes %}active{% endblock %}
+
+{% block extra_head %}
+<style>
+  .size-intro {
+    max-width: 620px;
+    color: var(--text-muted);
+    font-size: 0.92rem;
+    line-height: 1.6;
+    margin-bottom: 2rem;
+  }
+  .size-section {
+    margin-bottom: 2.75rem;
+    scroll-margin-top: 80px;
+  }
+  .size-section h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.2rem;
+    color: var(--green-dark);
+    border-bottom: 2px solid var(--gold);
+    padding-bottom: 0.35rem;
+    margin-bottom: 1rem;
+  }
+  .size-table-wrap { overflow-x: auto; }
+  table {
+    border-collapse: collapse;
+    min-width: 420px;
+    font-size: 0.88rem;
+  }
+  th {
+    background: var(--green-dark);
+    color: var(--white);
+    padding: 0.55rem 1rem;
+    text-align: center;
+    font-weight: 600;
+    font-size: 0.82rem;
+    white-space: nowrap;
+  }
+  th:first-child { text-align: left; border-radius: 0; }
+  td {
+    padding: 0.55rem 1rem;
+    border-bottom: 1px solid var(--cream-dark);
+    text-align: center;
+    color: var(--text);
+  }
+  td:first-child {
+    text-align: left;
+    font-weight: 700;
+    color: var(--text-muted);
+    white-space: nowrap;
+    background: var(--cream);
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:nth-child(even) td:not(:first-child) { background: rgba(240,237,231,0.5); }
+
+  .tip-box {
+    background: var(--white);
+    border-radius: var(--radius);
+    border-left: 4px solid var(--gold);
+    padding: 1rem 1.25rem;
+    font-size: 0.88rem;
+    color: var(--text-muted);
+    line-height: 1.6;
+    margin-bottom: 2rem;
+    box-shadow: var(--shadow);
+  }
+  .tip-box strong { color: var(--green-dark); }
+
+  .chart-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 2rem;
+  }
+  .chart-nav a {
+    background: var(--white);
+    border: 1.5px solid var(--cream-dark);
+    border-radius: 20px;
+    padding: 0.35rem 0.9rem;
+    font-size: 0.82rem;
+    color: var(--green-dark);
+    text-decoration: none;
+    font-weight: 600;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .chart-nav a:hover { background: var(--green-dark); color: var(--white); border-color: var(--green-dark); }
+</style>
+{% endblock %}
+
+{% block content %}
+<h1 class="page-title">Size Guide</h1>
+<p class="page-sub">All measurements in centimetres.</p>
+
+<div class="tip-box">
+  <strong>How to measure:</strong> Use a soft tape measure for best results.
+  <strong>Chest / Body Width</strong> — measure around the fullest part of your chest, keeping the tape level.
+  <strong>Body Length</strong> — measure from the highest point of the shoulder down to the hem.
+  When between sizes, size up for a relaxed fit.
+</div>
+
+<nav class="chart-nav">
+  {% for slug, chart in size_charts.items %}
+    <a href="#{{ slug }}">{{ chart.name }}</a>
+  {% endfor %}
+</nav>
+
+{% for slug, chart in size_charts.items %}
+  <div class="size-section" id="{{ slug }}">
+    <h2>{{ chart.name }}</h2>
+    <div class="size-table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Measurement</th>
+            {% for size in chart.sizes %}
+              <th>{{ size }}</th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for measurement, values in chart.measurements.items %}
+            <tr>
+              <td>{{ measurement }}</td>
+              {% for val in values %}
+                <td>{{ val }}</td>
+              {% endfor %}
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% endfor %}
+{% endblock %}
