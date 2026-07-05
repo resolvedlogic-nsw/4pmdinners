@@ -21,6 +21,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'meals',
     'store',
+    'finances'
 ]
 
 MIDDLEWARE = [
@@ -71,6 +72,9 @@ STATIC_URL = '/static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 SESSION_COOKIE_AGE = 60 * 60 * 24 * 180  # 6 months
@@ -80,4 +84,4 @@ LOGIN_URL = '/'
 
 SQUARE_ACCESS_TOKEN = os.environ.get('SQUARE_ACCESS_TOKEN')
 SQUARE_LOCATION_ID  = os.environ.get('SQUARE_LOCATION_ID')
-SQUARE_ENVIRONMENT  = os.environ.get('SQUARE_ENVIRONMENT', 'sandbox')
+SQUARE_ENVIRONMENT  = os.environ.get('SQUARE_ENVIRONMENT', 'production')

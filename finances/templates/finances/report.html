@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ batch.get_source_display }} Report — {{ batch.label }}</title>
+    <style>
+        body { font-family: Arial, Helvetica, sans-serif; max-width: 900px; margin: 30px auto; color: #222; }
+        h1 { font-size: 22px; margin-bottom: 2px; }
+        .sub { color: #666; margin-top: 0; }
+        .toolbar { display: flex; gap: 12px; align-items: center; margin: 16px 0 24px; flex-wrap: wrap; }
+        select { padding: 6px; }
+        .btn { padding: 8px 14px; background: #2b3a55; color: #fff; text-decoration: none; border-radius: 4px; font-size: 14px; }
+        .btn:hover { background: #1c2740; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 28px; }
+        th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid #ddd; font-size: 14px; }
+        th { background: #f0efe9; }
+        .totals-row td { font-weight: bold; border-top: 2px solid #999; }
+        h2 { font-size: 16px; border-bottom: 2px solid #2b3a55; padding-bottom: 4px; margin-top: 32px; }
+        .num { text-align: right; }
+    </style>
+</head>
+<body>
+    <div style="float: right;">
+    {% if user.is_authenticated %}
+        <form method="post" action="{% url 'logout' %}">
+    {% csrf_token %}
+    <button type="submit" style="background:none; border:none; color:blue; text-decoration:underline; cursor:pointer;">
+        Log Out
+    </button>
+</form>
+    {% else %}
+        <a href="{% url 'login' %}">Log In</a>
+    {% endif %}
+</div>
+    <h1>{{ batch.get_source_display }} Payments</h1>
+    <p class="sub">{{ batch.label }}</p>
+
+    <div class="toolbar">
+        <form method="get" style="display:flex; gap:8px; align-items:center; margin-right:auto;">
+            <label>Month:</label>
+            <select name="batch_id" onchange="this.form.submit()">
+                {% for b in batches %}
+                <option value="{{ b.id }}" {% if b.id == batch.id %}selected{% endif %}>{{ b.label }} ({{ b.get_source_display }})</option>
+                {% endfor %}
+            </select>
+            <label style="margin-left:12px;">Ministry:</label>
+            <select name="ministry" onchange="this.form.submit()">
+                <option value="">All</option>
+                {% for m in ministries %}
+                <option value="{{ m }}" {% if m == selected_ministry %}selected{% endif %}>{{ m }}</option>
+                {% endfor %}
+            </select>
+        </form>
+        <a href="{% url 'finances:report_pdf' batch.id %}{% if selected_ministry %}?ministry={{ selected_ministry|urlencode }}{% endif %}" class="btn" target="_blank">Download PDF</a>
+        <a href="{% url 'finances:upload' %}" class="btn" style="background:#555;">Upload New</a>
+    </div>
+
+    <h2>Payment per Ministry</h2>
+    <table>
+        <tr><th>Ministry</th><th class="num">Qty</th><th class="num">Gross</th><th class="num">Fees</th><th class="num">Net</th></tr>
+        {% for row in by_ministry %}
+        <tr>
+            <td>{{ row.ministry }}</td>
+            <td class="num">{{ row.qty }}</td>
+            <td class="num">${{ row.gross|floatformat:2 }}</td>
+            <td class="num">${{ row.fees|floatformat:2 }}</td>
+            <td class="num">${{ row.net|floatformat:2 }}</td>
+        </tr>
+        {% endfor %}
+        <tr class="totals-row">
+            <td>TOTAL</td><td></td>
+            <td class="num">${{ totals.gross|floatformat:2 }}</td>
+            <td class="num">${{ totals.fees|floatformat:2 }}</td>
+            <td class="num">${{ totals.net|floatformat:2 }}</td>
+        </tr>
+    </table>
+
+	<h2>{{ time_label }} Totals</h2>
+    <table>
+        <tr><th>{{ time_label }}</th><th class="num">Gross</th><th class="num">Fees</th><th class="num">Net</th></tr>
+        {% for row in by_time %}
+        <tr>
+            <td>{{ row.time_period|date:"d/m/Y" }}</td>
+            <td class="num">${{ row.gross|floatformat:2 }}</td>
+            <td class="num">${{ row.fees|floatformat:2 }}</td>
+            <td class="num">${{ row.net|floatformat:2 }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+
+    <h2>Itemised list</h2>
+    <table>
+        <tr><th>Date</th><th>Ministry</th><th>Item</th><th class="num">Qty</th><th class="num">Gross</th><th class="num">Fees</th><th class="num">Net</th></tr>
+
+
+        {% for t in transactions %}
+        <tr>
+            <td>{{ t.date|date:"d/m/Y" }}</td>
+            <td>{{ t.ministry }}</td>
+            <td>
+                {{ t.item }}
+                {% if t.extra.customer_name %}
+                    <br><small style="color: #666;">(Paid by: {{ t.extra.customer_name }})</small>
+                {% endif %}
+            </td>
+            <td class="num">{{ t.qty }}</td>
+            <td class="num">${{ t.gross|floatformat:2 }}</td>
+            <td class="num">${{ t.fees|floatformat:2 }}</td>
+            <td class="num">${{ t.net|floatformat:2 }}</td>
+        </tr>
+        {% endfor %}
+
+    </table>
+</body>
+</html>

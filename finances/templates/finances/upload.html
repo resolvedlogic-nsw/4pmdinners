@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Church Finances — Upload</title>
+    <style>
+        body { font-family: Arial, Helvetica, sans-serif; max-width: 720px; margin: 40px auto; color: #222; }
+        h1 { font-size: 22px; }
+        .card { background: #f7f6f2; border: 1px solid #ddd; border-radius: 8px; padding: 24px; margin-bottom: 24px; }
+        label { display: block; font-weight: bold; margin: 12px 0 4px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; color: #555; }
+        input, select { padding: 8px; width: 100%; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+        button { margin-top: 18px; padding: 10px 18px; background: #2b3a55; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
+        button:hover { background: #1c2740; }
+        table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+        th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #ddd; font-size: 14px; }
+        .errorlist { color: #a33; list-style: none; padding: 0; }
+    </style>
+</head>
+<body>
+    <h1>Church Finances</h1>
+
+    <div class="card">
+        <h2 style="font-size:16px; margin-top:0;">Upload a transaction report</h2>
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            {{ form.non_field_errors }}
+            <label for="{{ form.source.id_for_label }}">Source</label>
+            {{ form.source }}
+            <label for="{{ form.label.id_for_label }}">Label</label>
+            {{ form.label }}
+            <label for="{{ form.uploaded_file.id_for_label }}">File (CSV or XLSX export from Square/Stripe)</label>
+            {{ form.uploaded_file }}
+            <button type="submit">Upload &amp; Generate Report</button>
+        </form>
+    </div>
+
+    <div class="card">
+        <h2 style="font-size:16px; margin-top:0;">Recent uploads</h2>
+        <table>
+            <tr><th>Label</th><th>Source</th><th>Uploaded</th><th>Rows</th><th></th></tr>
+            {% for b in batches %}
+            <tr>
+                <td>{{ b.label }}</td>
+                <td>{{ b.get_source_display }}</td>
+                <td>{{ b.uploaded_at|date:"d M Y" }}</td>
+                <td>{{ b.row_count }}</td>
+                <td><a href="{% url 'finances:report' b.id %}">View report →</a></td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5">No reports yet.</td></tr>
+            {% endfor %}
+        </table>
+    </div>
+</body>
+</html>

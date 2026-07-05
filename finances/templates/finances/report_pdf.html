@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        @page { size: A4 portrait; margin: 1.5cm; }
+        body { font-family: Helvetica, Arial, sans-serif; font-size: 11px; color: #222; }
+        h1 { font-size: 16px; margin: 0; }
+        h2 { font-size: 11px; background: #eee; padding: 3px; margin: 15px 0 5px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 5px; }
+        .summary-wrapper { width: 100%; }
+        .summary-col { vertical-align: top; }
+        th { text-align: left; border-bottom: 1px solid #999; font-size: 10px; }
+        td { padding: 1px; border-bottom: 1px solid #eee; }
+        .num { text-align: right; }
+        table {
+    -pdf-table-paging: scale;
+}
+thead {
+    display: table-header-group;
+}
+    </style>
+</head>
+<body>
+    <h1>{{ batch.get_source_display }} — {{ batch.label }}</h1>
+
+    <table class="summary-wrapper">
+        <tr>
+            <td class="summary-col" style="width: 50%; padding-right: 10px;">
+                <h2>Summary by Ministry</h2>
+                <table>
+                    <tr><th>Ministry</th><th class="num">Qty</th><th class="num">Gross</th><th class="num">Fees</th><th class="num">Net</th></tr>
+                    {% for row in by_ministry %}
+                    <tr>
+                        <td>{{ row.ministry }}</td>
+                        <td class="num">{{ row.qty }}</td>
+                        <td class="num">${{ row.gross|floatformat:2 }}</td>
+                        <td class="num">${{ row.fees|floatformat:2 }}</td>
+                        <td class="num">${{ row.net|floatformat:2 }}</td>
+                    </tr>
+                    {% endfor %}
+                </table>
+            </td>
+            <td class="summary-col" style="width: 50%;">
+                <h2>Date Totals</h2>
+                <table>
+                    <tr><th>Date</th><th class="num">Gross</th><th class="num">Fees</th><th class="num">Net</th></tr>
+                    {% for row in by_time %}
+                    <tr>
+                        <td>{{ row.time_period|date:"d/m/y" }}</td>
+                        <td class="num">${{ row.gross|floatformat:2 }}</td>
+                        <td class="num">${{ row.fees|floatformat:2 }}</td>
+                        <td class="num">${{ row.net|floatformat:2 }}</td>
+                    </tr>
+                    {% endfor %}
+                </table>
+            </td>
+        </tr>
+    </table>
+
+    <h2>Itemised Details</h2>
+    <table>
+        <thead>
+        <tr>
+            <th style="width: 12%;">Date</th>
+            <th style="width: 18%;">Ministry</th>
+            <th style="width: 40%;">Item</th>
+            <th class="num" style="width: 8%;">Qty</th>
+            <th class="num" style="width: 7%;">Gross</th>
+            <th class="num" style="width: 7%;">Fees</th>
+            <th class="num" style="width: 8%;">Net</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for t in transactions %}
+        <tr>
+            <td>{{ t.date|date:"d/m/y" }}</td>
+            <td>{{ t.ministry }}</td>
+            <td>
+                {{ t.item }}
+                {% if t.extra.customer_name %}<br><small style="color: #666;">({{ t.extra.customer_name }})</small>{% endif %}
+            </td>
+            <td class="num">{{ t.qty }}</td>
+            <td class="num">${{ t.gross|floatformat:2 }}</td>
+            <td class="num">${{ t.fees|floatformat:2 }}</td>
+            <td class="num">${{ t.net|floatformat:2 }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>

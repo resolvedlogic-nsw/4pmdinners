@@ -1,0 +1,16 @@
+<div style="max-width: 400px; margin: 50px auto; padding: 20px; border: 1px solid #ccc; border-radius: 8px; font-family: sans-serif;">
+    <h2 style="text-align: center; color: #2b3a55;">Staff Login</h2>
+    <form method="post">
+        {% csrf_token %}
+        
+        <input type="hidden" name="next" value="/finances/">
+        
+        <div style="margin-bottom: 15px;">
+            {{ form.as_p }}
+        </div>
+        
+        <button type="submit" style="width: 100%; padding: 10px; background-color: #2b3a55; color: white; border: none; border-radius: 4px; cursor: pointer;">
+            Log In
+        </button>
+    </form>
+</div>
