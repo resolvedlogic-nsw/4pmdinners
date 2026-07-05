@@ -4,9 +4,9 @@ from .models import ImportBatch, ItemPrice, PatternRule, Transaction
 
 @admin.register(ImportBatch)
 class ImportBatchAdmin(admin.ModelAdmin):
-    list_display = ('label', 'source', 'uploaded_at', 'row_count')
+    list_display = ('report_month', 'source', 'uploaded_at', 'row_count')
     list_filter = ('source',)
-    ordering = ('-uploaded_at',)
+    ordering = ('-report_month',)
 
 
 @admin.register(ItemPrice)
