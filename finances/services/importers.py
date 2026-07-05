@@ -1,7 +1,7 @@
-import re
-from datetime import datetime
-import pandas as pd
 import html
+import re
+
+import pandas as pd
 from django.db import transaction as db_transaction
 from ..models import Transaction
 from .classify import clean_val, build_item_library, build_pattern_rules, classify
@@ -15,6 +15,13 @@ from .classify import clean_val, build_item_library, build_pattern_rules, classi
 # report always ties out exactly to Square's own daily totals. The only
 # difference is this writes Transaction rows tied to an ImportBatch instead
 # of building a downloadable CSV.
+#
+# Dedup happens BEFORE line-splitting, at the raw-row level (one row = one
+# Square Transaction ID). That matters: the daily reconciliation step below
+# forces each day's totals to match Square's own daily sums exactly, and
+# those sums must be computed only from the rows we're actually keeping —
+# otherwise a skipped duplicate would throw the last line of that day's
+# rounding off by whatever the duplicate contributed.
 # ---------------------------------------------------------------------------
 
 def import_square(df, batch):
@@ -22,9 +29,23 @@ def import_square(df, batch):
     gross_col = next((c for c in ['Gross Sales', 'Gross'] if c in df.columns), None)
     fee_col = next((c for c in ['Fees', 'Fee'] if c in df.columns), None)
     date_col = next((c for c in ['Date', 'Transaction Date'] if c in df.columns), None)
+    id_col = next((c for c in ['Transaction ID'] if c in df.columns), None)
 
     if not all([desc_col, gross_col, fee_col, date_col]):
         raise ValueError("Could not detect required columns (Description/Gross/Fees/Date) in this file.")
+
+    # --- Dedup: skip rows whose Transaction ID we've already imported ---
+    if id_col:
+        existing_ids = set(
+            Transaction.objects.filter(source='square').exclude(external_id='')
+            .values_list('external_id', flat=True)
+        )
+        raw_ids = df[id_col].astype(str)
+        is_dup = raw_ids.isin(existing_ids) & (raw_ids != '') & (raw_ids != 'nan')
+        df = df.loc[~is_dup].reset_index(drop=True)
+
+    if df.empty:
+        return 0
 
     library_map = build_item_library()
     pattern_rules = build_pattern_rules()
@@ -88,12 +109,12 @@ def import_square(df, batch):
                 row_f_sum += item['fee']
             item['gross'] = round(item['gross'], 2)
             item['date'] = pd.to_datetime(row[date_col]).date()
-            item['external_id'] = str(row.get('Transaction ID', ''))
+            item['external_id'] = str(row.get(id_col, '')) if id_col else ''
             all_rows.append(item)
 
-    # Daily reconciliation: force each day's totals to match Square exactly,
-    # same as the standalone script (absorbs rounding into the last line of
-    # each day).
+    # Daily reconciliation: force each day's totals to match Square exactly.
+    # `df` has already been filtered to non-duplicate rows above, so these
+    # per-day targets only reflect what we're actually keeping.
     by_date = {}
     for r in all_rows:
         by_date.setdefault(r['date'], []).append(r)
@@ -121,15 +142,23 @@ def import_square(df, batch):
         for r in final
     ]
     Transaction.objects.bulk_create(objs)
+    batch.row_count = len(objs)
+    batch.save(update_fields=['row_count'])
     return len(objs)
 
 
 # ---------------------------------------------------------------------------
 # STRIPE
 #
-# Much simpler: Stripe's export already tags each charge with the event/
-# reason (payment_metadata[Event Name]) which IS the ministry — no
-# classification needed, just column mapping.
+# Stripe's export already tags each charge with the event/reason
+# (payment_metadata[Event Name]) which IS the ministry — no classification
+# needed, just column mapping.
+#
+# Two distinct dates come out of this file:
+#   - automatic_payout_effective_at -> Transaction.date (drives the report's
+#     weekly grouping and is what "which report this belongs to" means)
+#   - created -> stashed in extra['created_date'], purely for display next
+#     to the item in the itemised list.
 # ---------------------------------------------------------------------------
 
 def clean_text(raw_text):
@@ -137,45 +166,68 @@ def clean_text(raw_text):
         return ""
     return html.unescape(raw_text).replace('â€™', "'").strip()
 
+
 def import_stripe(df, batch):
     ministry_col = next((c for c in df.columns if 'Event Name' in c), None) or 'reporting_category'
     gross_col = 'gross' if 'gross' in df.columns else 'Amount'
     fee_col = 'fee' if 'fee' in df.columns else 'Fee'
     net_col = 'net' if 'net' in df.columns else 'Net'
-    date_col = 'created' if 'created' in df.columns else 'Created date (UTC)'
+    report_date_col = 'automatic_payout_effective_at' if 'automatic_payout_effective_at' in df.columns else None
+    display_date_col = 'created' if 'created' in df.columns else 'Created date (UTC)'
     id_col = 'source_id' if 'source_id' in df.columns else 'id'
     ref_col = 'description' if 'description' in df.columns else None
 
+    if report_date_col is None:
+        raise ValueError("Could not find the 'automatic_payout_effective_at' column in this Stripe export.")
+
+    # --- Dedup: skip rows whose id we've already imported. Never overwrite
+    # an existing (possibly manually re-classified) row. ---
+    existing_ids = set(
+        Transaction.objects.filter(source='stripe').exclude(external_id='')
+        .values_list('external_id', flat=True)
+    )
+
     objs = []
     for _, row in df.iterrows():
+        external_id = str(row.get(id_col, '')).strip()
+        if external_id and external_id in existing_ids:
+            continue
+
+        report_date_val = pd.to_datetime(row.get(report_date_col), errors='coerce')
+        if pd.isna(report_date_val):
+            continue
+
         gross = clean_val(row.get(gross_col))
         fee = clean_val(row.get(fee_col))
         net = clean_val(row.get(net_col)) if net_col in df.columns else round(gross - fee, 2)
-        
-        # Clean text to remove HTML entities and bad quotes
+
         ministry = clean_text(str(row.get(ministry_col) or 'Unknown'))
         item_desc = clean_text(str(row.get(ref_col) or ''))
-        
-        # Combine Event Name and Description if both exist
+
         event_name = clean_text(str(row.get('payment_metadata[Event Name]') or ''))
         if event_name and item_desc and event_name != item_desc:
             item_desc = f"{event_name} ({item_desc})"
         elif event_name:
             item_desc = event_name
 
-        date_val = pd.to_datetime(row.get(date_col), errors='coerce')
-        if pd.isna(date_val):
-            continue
-            
-        external_id = str(row.get(id_col, '')).strip()
+        extra = {}
+        display_date_val = pd.to_datetime(row.get(display_date_col), errors='coerce')
+        if not pd.isna(display_date_val):
+            extra['created_date'] = display_date_val.date().isoformat()
 
         objs.append(Transaction(
-            batch=batch, source='stripe', date=date_val.date(), ministry=ministry,
-            item=item_desc, qty=1, gross=gross, fees=fee, net=net, external_id=external_id
+            batch=batch, source='stripe', date=report_date_val.date(), ministry=ministry,
+            item=item_desc, qty=1, gross=gross, fees=fee, net=net,
+            external_id=external_id, extra=extra,
         ))
+        if external_id:
+            existing_ids.add(external_id)
+
     Transaction.objects.bulk_create(objs)
     batch.row_count = len(objs)
     batch.save(update_fields=['row_count'])
+    return len(objs)
+
 
 def import_stripe_ytd(df, batch):
     """Links the YTD customer names to existing Stripe transactions."""
@@ -183,12 +235,12 @@ def import_stripe_ytd(df, batch):
     name_col = 'Card Name'
     if id_col not in df.columns or name_col not in df.columns:
         return
-    
+
     card_names = dict(zip(df[id_col], df[name_col].fillna('')))
-    
+
     updated_count = 0
     stripe_txns = Transaction.objects.filter(source='stripe')
-    
+
     with db_transaction.atomic():
         for txn in stripe_txns:
             if txn.external_id in card_names:
@@ -197,8 +249,6 @@ def import_stripe_ytd(df, batch):
                     txn.extra['customer_name'] = name
                     txn.save(update_fields=['extra'])
                     updated_count += 1
-                    
+
     batch.row_count = updated_count
     batch.save(update_fields=['row_count'])
-
-# (For import_square, just wrap `row[desc_col]` in `clean_text(str(row[desc_col]))` to fix its encoding too).

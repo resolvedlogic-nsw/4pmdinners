@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Review — {{ batch.get_source_display }} {{ batch.report_month|date:"F Y" }}</title>
+    <style>
+        body { font-family: Arial, Helvetica, sans-serif; max-width: 900px; margin: 40px auto; color: #222; }
+        h1 { font-size: 22px; margin-bottom: 4px; }
+        p.sub { color: #666; margin-top: 0; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #ddd; font-size: 14px; }
+        th { background: #f0efe9; }
+        input[type=text] { padding: 6px; width: 100%; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+        .num { text-align: right; }
+        button { margin-top: 18px; padding: 10px 18px; background: #2b3a55; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
+        button:hover { background: #1c2740; }
+        .errorlist { color: #a33; list-style: none; padding: 0; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <h1>A few rows need a closer look</h1>
+    <p class="sub">
+        {{ batch.get_source_display }} — {{ batch.report_month|date:"F Y" }}.
+        Fill in Ministry and/or Item for each row below, then save to continue to the report.
+    </p>
+
+    <form method="post">
+        {% csrf_token %}
+        {{ formset.management_form }}
+        {{ formset.non_form_errors }}
+        <table>
+            <tr>
+                <th>Date</th>
+                <th class="num">Gross</th>
+                <th>Ministry</th>
+                <th>Item</th>
+            </tr>
+            {% for form in formset %}
+            <tr>
+                <td>{{ form.instance.date|date:"d/m/Y" }}</td>
+                <td class="num">${{ form.instance.gross|floatformat:2 }}</td>
+                <td>
+                    {{ form.id }}
+                    {{ form.ministry }}
+                    {{ form.ministry.errors }}
+                </td>
+                <td>
+                    {{ form.item }}
+                    {{ form.item.errors }}
+                </td>
+            </tr>
+            {% endfor %}
+        </table>
+        <button type="submit">Save &amp; Continue to Report</button>
+    </form>
+</body>
+</html>

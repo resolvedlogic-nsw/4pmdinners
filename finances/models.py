@@ -11,7 +11,9 @@ class ImportBatch(models.Model):
     ]
 
     source = models.CharField(max_length=10, choices=SOURCE_CHOICES)
-    label = models.CharField(max_length=100, help_text="e.g. 'June 2026'")
+    report_month = models.DateField(
+        help_text="Always the 1st of the month this report covers, e.g. 2026-06-01."
+    )
     uploaded_file = models.FileField(upload_to='finances/uploads/%Y/%m/')
     uploaded_at = models.DateTimeField(auto_now_add=True)
     row_count = models.IntegerField(default=0)
@@ -20,7 +22,7 @@ class ImportBatch(models.Model):
         ordering = ['-uploaded_at']
 
     def __str__(self):
-        return f"{self.get_source_display()} — {self.label}"
+        return f"{self.get_source_display()} — {self.report_month:%B %Y}"
 
 
 class ItemPrice(models.Model):
@@ -84,8 +86,9 @@ class Transaction(models.Model):
     net = models.DecimalField(max_digits=10, decimal_places=2)
     external_id = models.CharField(max_length=200, blank=True)
     # Free-form extras from classifiers/importers: Family, Credits, Colour,
-    # Size, Stripe customer reference, etc. Keeps the model stable even as
-    # new transaction sources bring new metadata.
+    # Size, Stripe customer reference, Stripe display-only 'created' date,
+    # etc. Keeps the model stable even as new transaction sources bring new
+    # metadata.
     extra = models.JSONField(blank=True, default=dict)
 
     class Meta:
@@ -93,6 +96,7 @@ class Transaction(models.Model):
         indexes = [
             models.Index(fields=['batch', 'ministry']),
             models.Index(fields=['date']),
+            models.Index(fields=['source', 'external_id']),
         ]
 
     def __str__(self):

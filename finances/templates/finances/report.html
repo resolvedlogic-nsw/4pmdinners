@@ -2,13 +2,15 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>{{ batch.get_source_display }} Report — {{ batch.label }}</title>
+    <title>{{ batch.get_source_display }} Report — {{ batch.report_month|date:"F Y" }}</title>
     <style>
         body { font-family: Arial, Helvetica, sans-serif; max-width: 900px; margin: 30px auto; color: #222; }
         h1 { font-size: 22px; margin-bottom: 2px; }
         .sub { color: #666; margin-top: 0; }
-        .toolbar { display: flex; gap: 12px; align-items: center; margin: 16px 0 24px; flex-wrap: wrap; }
+        .toolbar { display: flex; gap: 16px; align-items: center; margin: 16px 0 24px; flex-wrap: wrap; }
         select { padding: 6px; }
+        .source-toggle { display: flex; gap: 4px; align-items: center; font-size: 14px; }
+        .source-toggle label { display: inline-flex; align-items: center; gap: 4px; font-weight: normal; cursor: pointer; }
         .btn { padding: 8px 14px; background: #2b3a55; color: #fff; text-decoration: none; border-radius: 4px; font-size: 14px; }
         .btn:hover { background: #1c2740; }
         table { width: 100%; border-collapse: collapse; margin-bottom: 28px; }
@@ -33,23 +35,33 @@
     {% endif %}
 </div>
     <h1>{{ batch.get_source_display }} Payments</h1>
-    <p class="sub">{{ batch.label }}</p>
+    <p class="sub">{{ batch.report_month|date:"F Y" }}</p>
 
     <div class="toolbar">
-        <form method="get" style="display:flex; gap:8px; align-items:center; margin-right:auto;">
-            <label>Month:</label>
-            <select name="batch_id" onchange="this.form.submit()">
-                {% for b in batches %}
-                <option value="{{ b.id }}" {% if b.id == batch.id %}selected{% endif %}>{{ b.label }} ({{ b.get_source_display }})</option>
-                {% endfor %}
-            </select>
-            <label style="margin-left:12px;">Ministry:</label>
-            <select name="ministry" onchange="this.form.submit()">
-                <option value="">All</option>
-                {% for m in ministries %}
-                <option value="{{ m }}" {% if m == selected_ministry %}selected{% endif %}>{{ m }}</option>
-                {% endfor %}
-            </select>
+        <form method="get" style="display:flex; gap:16px; align-items:center; margin-right:auto; flex-wrap: wrap;">
+            <span>
+                <label style="font-size:12px; display:block; color:#555;">Month</label>
+                <select name="month" onchange="this.form.submit()">
+                    {% for m in months %}
+                    <option value="{{ m|date:'Y-m-d' }}" {% if m == batch.report_month %}selected{% endif %}>{{ m|date:"F Y" }}</option>
+                    {% endfor %}
+                </select>
+            </span>
+
+            <span class="source-toggle">
+                <label><input type="radio" name="source" value="square" {% if selected_source == 'square' %}checked{% endif %} onchange="this.form.submit()"> Square</label>
+                <label><input type="radio" name="source" value="stripe" {% if selected_source == 'stripe' %}checked{% endif %} onchange="this.form.submit()"> Stripe</label>
+            </span>
+
+            <span>
+                <label style="font-size:12px; display:block; color:#555;">Ministry</label>
+                <select name="ministry" onchange="this.form.submit()">
+                    <option value="">All</option>
+                    {% for m in ministries %}
+                    <option value="{{ m }}" {% if m == selected_ministry %}selected{% endif %}>{{ m }}</option>
+                    {% endfor %}
+                </select>
+            </span>
         </form>
         <a href="{% url 'finances:report_pdf' batch.id %}{% if selected_ministry %}?ministry={{ selected_ministry|urlencode }}{% endif %}" class="btn" target="_blank">Download PDF</a>
         <a href="{% url 'finances:upload' %}" class="btn" style="background:#555;">Upload New</a>
@@ -101,6 +113,9 @@
                 {{ t.item }}
                 {% if t.extra.customer_name %}
                     <br><small style="color: #666;">(Paid by: {{ t.extra.customer_name }})</small>
+                {% endif %}
+                {% if t.extra.created_date %}
+                    <br><small style="color: #999;">(Created: {{ t.extra.created_date }})</small>
                 {% endif %}
             </td>
             <td class="num">{{ t.qty }}</td>

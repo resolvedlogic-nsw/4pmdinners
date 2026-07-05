@@ -10,19 +10,16 @@
         table { width: 100%; border-collapse: collapse; margin-bottom: 5px; }
         .summary-wrapper { width: 100%; }
         .summary-col { vertical-align: top; }
-        th { text-align: left; border-bottom: 1px solid #999; font-size: 10px; }
-        td { padding: 1px; border-bottom: 1px solid #eee; }
+        th { text-align: left; border-bottom: 1px solid #999; font-size: 10px; padding: 2px 3px; }
+        td { padding: 2px 3px; border-bottom: 1px solid #eee; }
         .num { text-align: right; }
-        table {
-    -pdf-table-paging: scale;
-}
-thead {
-    display: table-header-group;
-}
+        .itemised-table {
+            -pdf-table-paging: scale;
+        }
     </style>
 </head>
 <body>
-    <h1>{{ batch.get_source_display }} — {{ batch.label }}</h1>
+    <h1>{{ batch.get_source_display }} — {{ batch.report_month|date:"F Y" }}</h1>
 
     <table class="summary-wrapper">
         <tr>
@@ -59,16 +56,33 @@ thead {
     </table>
 
     <h2>Itemised Details</h2>
-    <table>
-        <thead>
+
+    <!--
+        xhtml2pdf (pisa) only repeats a header row on every page if the
+        <thead> tag itself carries repeat="1" — the CSS
+        `display: table-header-group` alone (previous version) is ignored.
+        Column widths are declared once via <colgroup> rather than on each
+        <th>, which is what stopped them drifting across page breaks.
+    -->
+    <table class="itemised-table">
+        <colgroup>
+            <col style="width: 10%;">
+            <col style="width: 16%;">
+            <col style="width: 42%;">
+            <col style="width: 8%;">
+            <col style="width: 8%;">
+            <col style="width: 8%;">
+            <col style="width: 8%;">
+        </colgroup>
+        <thead repeat="1">
         <tr>
-            <th style="width: 12%;">Date</th>
-            <th style="width: 18%;">Ministry</th>
-            <th style="width: 40%;">Item</th>
-            <th class="num" style="width: 8%;">Qty</th>
-            <th class="num" style="width: 7%;">Gross</th>
-            <th class="num" style="width: 7%;">Fees</th>
-            <th class="num" style="width: 8%;">Net</th>
+            <th>Date</th>
+            <th>Ministry</th>
+            <th>Item</th>
+            <th class="num">Qty</th>
+            <th class="num">Gross</th>
+            <th class="num">Fees</th>
+            <th class="num">Net</th>
         </tr>
         </thead>
         <tbody>
@@ -78,7 +92,7 @@ thead {
             <td>{{ t.ministry }}</td>
             <td>
                 {{ t.item }}
-                {% if t.extra.customer_name %}<br><small style="color: #666;">({{ t.extra.customer_name }})</small>{% endif %}
+                {% if t.extra.customer_name %}<br><span style="color: #666; font-size: 9px;">({{ t.extra.customer_name }})</span>{% endif %}
             </td>
             <td class="num">{{ t.qty }}</td>
             <td class="num">${{ t.gross|floatformat:2 }}</td>
