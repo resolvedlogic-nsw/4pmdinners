@@ -63,7 +63,7 @@
                 </select>
             </span>
         </form>
-        <a href="{% url 'finances:report_pdf' batch.id %}{% if selected_ministry %}?ministry={{ selected_ministry|urlencode }}{% endif %}" class="btn" target="_blank">Download PDF</a>
+        <a href="{% url 'finances:report_pdf' %}?month={{ batch.report_month|date:'Y-m-d' }}&source={{ selected_source }}{% if selected_ministry %}&ministry={{ selected_ministry|urlencode }}{% endif %}" class="btn" target="_blank">Download PDF</a>
         <a href="{% url 'finances:upload' %}" class="btn" style="background:#555;">Upload New</a>
     </div>
 

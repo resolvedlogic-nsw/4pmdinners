@@ -82,7 +82,7 @@
                 <td>{{ b.row_count }}</td>
                 <td>
                     {% if b.source != 'stripe_ytd' %}
-                        <a href="{% url 'finances:report' b.id %}">View report →</a>
+                        <a href="{% url 'finances:report' %}?month={{ b.report_month|date:'Y-m-d' }}&source={{ b.source }}">View report →</a>
                     {% else %}
                         <span style="color:#888;">(linking file — no report)</span>
                     {% endif %}

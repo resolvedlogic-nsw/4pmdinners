@@ -1,14 +1,15 @@
-from datetime import datetime
+from datetime import date, datetime
 from io import BytesIO
 
 import pandas as pd
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth import logout
 from django.db.models import Sum, F, Q
-from django.db.models.functions import TruncWeek
+from django.db.models.functions import TruncWeek, TruncMonth
 from django.http import HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.template.loader import render_to_string
+from django.urls import reverse
 from xhtml2pdf import pisa
 
 from .forms import UploadForm, TransactionReviewFormSet
@@ -42,6 +43,18 @@ def _needs_review(batch):
     return Transaction.objects.filter(batch=batch).filter(
         Q(ministry='Unknown') | Q(item='')
     ).exists()
+
+
+def _report_url_for(batch):
+    """
+    Starting point for 'go look at the report' right after an upload or a
+    review save. Uses the month/source the uploader picked for this batch —
+    a reasonable default view — but the report itself groups by each
+    transaction's real date, so anything that actually belongs to a
+    different month (payout lag, month-end straddle) will show up there
+    instead once you navigate the Month dropdown.
+    """
+    return f"{reverse('finances:report')}?month={batch.report_month:%Y-%m-%d}&source={batch.source}"
 
 
 # ---------------------------------------------------------------------------
@@ -78,7 +91,7 @@ def upload_view(request):
 
                 if _needs_review(batch):
                     return redirect('finances:review', batch_id=batch.id)
-                return redirect('finances:report', batch_id=batch.id)
+                return redirect(_report_url_for(batch))
             except Exception as e:
                 batch.delete()
                 form.add_error(None, f"Error processing file: {str(e)}")
@@ -104,7 +117,7 @@ def review_view(request, batch_id):
         formset = TransactionReviewFormSet(request.POST, queryset=qs)
         if formset.is_valid():
             formset.save()
-            return redirect('finances:report', batch_id=batch.id)
+            return redirect(_report_url_for(batch))
     else:
         formset = TransactionReviewFormSet(queryset=qs)
 
@@ -113,50 +126,81 @@ def review_view(request, batch_id):
 
 # ---------------------------------------------------------------------------
 # Reporting
+#
+# A report is a (calendar month, source) pair, built from each
+# transaction's own `date` field — NOT from a single upload batch. This
+# matters because one upload can legitimately span a month boundary:
+# Stripe's payout-effective date lags the file's nominal month for some
+# transactions, and a Square month-end POS export can catch a transaction
+# or two from the next day. Grouping by real date means those transactions
+# land in the report they actually belong to, even if several different
+# uploads end up contributing rows to the same reported month.
+#
+# ImportBatch.report_month is still useful as a label for the "All Uploads"
+# list (what you told the system this file was for) — it just isn't what
+# the report page filters by any more.
 # ---------------------------------------------------------------------------
 
-def _resolve_batch(request, batch_id=None):
+SOURCE_LABELS = dict(ImportBatch.SOURCE_CHOICES)
+
+
+class ReportPeriod:
+    """Stand-in for the old 'batch' template variable. Templates keep
+    referencing `batch.report_month` / `batch.get_source_display` /
+    `batch.source` unchanged — this just supplies those from a
+    (month, source) pair instead of a single ImportBatch row."""
+
+    def __init__(self, source, report_month):
+        self.source = source
+        self.report_month = report_month
+
+    def get_source_display(self):
+        return SOURCE_LABELS.get(self.source, self.source)
+
+
+def _resolve_period(request):
     """
-    Figures out which ImportBatch the report page/PDF should show.
-
-    Priority: an explicit batch_id (old-style links / the review redirect)
-    wins outright. Otherwise we resolve from the Month dropdown + Source
-    radio (default 'square'). If that exact month/source combo doesn't
-    exist, we fall back to whichever source *does* have data for that
-    month, so picking a month never dead-ends on an empty report.
+    Resolves the (year, month, source) triple the report page/PDF should
+    show, from the Month dropdown + Source radio (default 'square'). If
+    that exact month/source combo has no data, falls back to whichever
+    source *does* have data for that month, so picking a month never
+    dead-ends on an empty report.
     """
-    batches = ImportBatch.objects.exclude(source='stripe_ytd')
-
-    requested_batch_id = request.GET.get('batch_id') or batch_id
-    if requested_batch_id:
-        return get_object_or_404(ImportBatch, id=requested_batch_id), batches
-
     month_str = request.GET.get('month')
     source = request.GET.get('source') or 'square'
 
-    report_month = None
+    month_date = None
     if month_str:
         try:
-            report_month = datetime.strptime(month_str, '%Y-%m-%d').date()
+            month_date = datetime.strptime(month_str, '%Y-%m-%d').date()
         except ValueError:
-            report_month = None
+            month_date = None
 
-    if report_month is None:
-        batch = batches.order_by('-report_month').first()
-        return batch, batches
+    if month_date is None:
+        latest = Transaction.objects.order_by('-date').values_list('date', flat=True).first()
+        if latest is None:
+            return None, None, None
+        month_date = latest.replace(day=1)
 
-    batch = batches.filter(report_month=report_month, source=source).first()
-    if batch is None:
-        batch = batches.filter(report_month=report_month).exclude(source=source).first()
-    return batch, batches
+    has_data = Transaction.objects.filter(
+        source=source, date__year=month_date.year, date__month=month_date.month
+    ).exists()
+    if not has_data:
+        other = 'stripe' if source == 'square' else 'square'
+        if Transaction.objects.filter(
+            source=other, date__year=month_date.year, date__month=month_date.month
+        ).exists():
+            source = other
+
+    return month_date.year, month_date.month, source
 
 
-def _report_context(batch, qs):
+def _report_context(period, qs):
     by_ministry = qs.values('ministry').annotate(
         gross=Sum('gross'), fees=Sum('fees'), net=Sum('net'), qty=Sum('qty')
     ).order_by('ministry')
 
-    if batch.source == 'stripe':
+    if period.source == 'stripe':
         by_time = qs.annotate(time_period=TruncWeek('date')).values('time_period').annotate(
             gross=Sum('gross'), fees=Sum('fees'), net=Sum('net')
         ).order_by('time_period')
@@ -173,58 +217,65 @@ def _report_context(batch, qs):
     totals = qs.aggregate(gross=Sum('gross'), fees=Sum('fees'), net=Sum('net'))
 
     return {
-        'batch': batch, 'transactions': qs.order_by('date', 'ministry'),
+        'batch': period, 'transactions': qs.order_by('date', 'ministry'),
         'by_ministry': by_ministry, 'by_time': by_time, 'time_label': time_label,
         'by_item': by_item, 'totals': totals,
     }
 
 
 @staff_member_required(login_url='/login/')
-def report_view(request, batch_id=None):
-    batch, batches = _resolve_batch(request, batch_id)
-    if batch is None:
+def report_view(request):
+    year, month, source = _resolve_period(request)
+    if year is None:
         return redirect('finances:upload')
 
-    qs = Transaction.objects.filter(batch=batch)
+    qs = Transaction.objects.filter(source=source, date__year=year, date__month=month)
     ministry = request.GET.get('ministry') or ''
     if ministry:
         qs = qs.filter(ministry=ministry)
 
-    ministries = Transaction.objects.filter(batch=batch).values_list('ministry', flat=True).distinct().order_by('ministry')
-    months = batches.values_list('report_month', flat=True).distinct().order_by('-report_month')
+    ministries = Transaction.objects.filter(
+        source=source, date__year=year, date__month=month
+    ).values_list('ministry', flat=True).distinct().order_by('ministry')
 
-    context = _report_context(batch, qs)
+    months = Transaction.objects.annotate(month=TruncMonth('date')).values_list(
+        'month', flat=True
+    ).distinct().order_by('-month')
+
+    period = ReportPeriod(source, date(year, month, 1))
+    context = _report_context(period, qs)
     context.update({
-        'batches': batches,
         'ministries': ministries,
         'selected_ministry': ministry,
         'months': months,
-        'selected_source': batch.source,
+        'selected_source': source,
     })
     return render(request, 'finances/report.html', context)
 
 
 @staff_member_required(login_url='/login/')
-def report_pdf_view(request, batch_id=None):
-    batch, _batches = _resolve_batch(request, batch_id)
-    if batch is None:
+def report_pdf_view(request):
+    year, month, source = _resolve_period(request)
+    if year is None:
         return redirect('finances:upload')
 
-    qs = Transaction.objects.filter(batch=batch)
+    qs = Transaction.objects.filter(source=source, date__year=year, date__month=month)
     ministry = request.GET.get('ministry') or ''
     if ministry:
         qs = qs.filter(ministry=ministry)
 
-    context = _report_context(batch, qs)
+    period = ReportPeriod(source, date(year, month, 1))
+    context = _report_context(period, qs)
     context['selected_ministry'] = ministry
     html = render_to_string('finances/report_pdf.html', context)
 
     result = BytesIO()
     pisa.CreatePDF(html, dest=result)
 
-    month_label = batch.report_month.strftime('%Y-%m')
+    month_label = period.report_month.strftime('%Y-%m')
     safe_ministry = f"_{ministry.replace(' ', '_')}" if ministry else ""
-    filename = f"{batch.get_source_display()}_{month_label}{safe_ministry}.pdf"
+    filename = f"{period.get_source_display()}_{month_label}{safe_ministry}.pdf"
     response = HttpResponse(result.getvalue(), content_type='application/pdf')
     response['Content-Disposition'] = f'inline; filename="{filename}"'
     return response
+
