@@ -58,31 +58,22 @@
     <h2>Itemised Details</h2>
 
     <!--
-        xhtml2pdf (pisa) only repeats a header row on every page if the
-        <thead> tag itself carries repeat="1" — the CSS
-        `display: table-header-group` alone (previous version) is ignored.
-        Column widths are declared once via <colgroup> rather than on each
-        <th>, which is what stopped them drifting across page breaks.
+        Reverted from <colgroup> + <thead repeat="1">: that combination
+        made xhtml2pdf's column widths unravel across page breaks. Plain
+        inline widths on each <th>, no repeat attribute, is what actually
+        holds the columns steady — headers just won't repeat on later
+        pages.
     -->
     <table class="itemised-table">
-        <colgroup>
-            <col style="width: 10%;">
-            <col style="width: 16%;">
-            <col style="width: 42%;">
-            <col style="width: 8%;">
-            <col style="width: 8%;">
-            <col style="width: 8%;">
-            <col style="width: 8%;">
-        </colgroup>
-        <thead repeat="1">
+        <thead>
         <tr>
-            <th>Date</th>
-            <th>Ministry</th>
-            <th>Item</th>
-            <th class="num">Qty</th>
-            <th class="num">Gross</th>
-            <th class="num">Fees</th>
-            <th class="num">Net</th>
+            <th style="width: 12%;">Date</th>
+            <th style="width: 18%;">Ministry</th>
+            <th style="width: 40%;">Item</th>
+            <th class="num" style="width: 8%;">Qty</th>
+            <th class="num" style="width: 7%;">Gross</th>
+            <th class="num" style="width: 7%;">Fees</th>
+            <th class="num" style="width: 8%;">Net</th>
         </tr>
         </thead>
         <tbody>
