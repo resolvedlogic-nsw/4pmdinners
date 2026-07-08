@@ -1,0 +1,131 @@
+{% extends "store/base.html" %}
+{% block title %}Order Report – Lighthouse Merch{% endblock %}
+
+{% block extra_head %}
+<style>
+  .report-toolbar {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .report-toolbar a {
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 700;
+    padding: 0.4rem 0.9rem;
+    border-radius: 20px;
+    border: 2px solid var(--cream-dark);
+    color: var(--text-muted);
+  }
+  .report-toolbar a.active {
+    background: var(--green-dark);
+    border-color: var(--green-dark);
+    color: var(--white);
+  }
+  .report-table-wrap {
+    overflow-x: auto;
+    background: var(--white);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+  table.report {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+  }
+  table.report th {
+    text-align: left;
+    font-size: 0.74rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    border-bottom: 2px solid var(--cream-dark);
+    padding: 0.6rem 0.75rem;
+    white-space: nowrap;
+  }
+  table.report td {
+    padding: 0.6rem 0.75rem;
+    border-bottom: 1px solid var(--cream-dark);
+    vertical-align: top;
+  }
+  table.report tr:last-child td { border-bottom: none; }
+  .buyer-cell { font-weight: 700; color: var(--green-dark); }
+  .buyer-email { font-size: 0.78rem; color: var(--text-muted); font-weight: 400; }
+  .status-pill {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 0.15rem 0.55rem;
+    border-radius: 20px;
+  }
+  .status-paid      { background: #eafaf1; color: #1e8449; }
+  .status-pending   { background: #fef5e7; color: #9a6d1f; }
+  .status-cancelled { background: #fdecea; color: #922b21; }
+  .report-total-row td {
+    font-weight: 700;
+    font-size: 1rem;
+    color: var(--green-dark);
+    border-top: 2px solid var(--cream-dark);
+  }
+  .empty-report { text-align: center; padding: 3rem 1rem; color: var(--text-muted); }
+</style>
+{% endblock %}
+
+{% block content %}
+<h1 class="page-title">Order Report</h1>
+<p class="page-sub">One row per purchased item.</p>
+
+<div class="report-toolbar">
+  <a href="?status=paid" class="{% if status_filter == 'paid' %}active{% endif %}">Paid</a>
+  <a href="?status=pending" class="{% if status_filter == 'pending' %}active{% endif %}">Pending</a>
+  <a href="?status=cancelled" class="{% if status_filter == 'cancelled' %}active{% endif %}">Cancelled</a>
+  <a href="?status=all" class="{% if status_filter == 'all' %}active{% endif %}">All</a>
+</div>
+
+{% if rows %}
+<div class="report-table-wrap">
+  <table class="report">
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Buyer</th>
+        <th>Item</th>
+        <th>Colour</th>
+        <th>Size</th>
+        <th>Qty</th>
+        <th>Price</th>
+        <th>Subtotal</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr>
+        <td>{{ row.date|date:"d M Y, g:i a" }}</td>
+        <td class="buyer-cell">
+          {{ row.buyer_name }}<br>
+          <span class="buyer-email">{{ row.buyer_email }}</span>
+        </td>
+        <td>{{ row.product_name }}</td>
+        <td>{{ row.colour }}</td>
+        <td>{{ row.size }}</td>
+        <td>{{ row.qty }}</td>
+        <td>${{ row.price }}</td>
+        <td>${{ row.subtotal }}</td>
+        <td><span class="status-pill status-{{ row.status }}">{{ row.status }}</span></td>
+      </tr>
+      {% endfor %}
+      <tr class="report-total-row">
+        <td colspan="7"></td>
+        <td>${{ grand_total }}</td>
+        <td></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="empty-report">No orders found for this filter.</div>
+{% endif %}
+{% endblock %}

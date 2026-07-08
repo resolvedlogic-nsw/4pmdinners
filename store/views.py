@@ -3,12 +3,14 @@ import json
 import uuid
 import os
 from square.client import Square, SquareEnvironment
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from django.contrib import messages
+from django.contrib.admin.views.decorators import staff_member_required
 
 from .data import PRODUCTS, CATEGORIES, SIZE_CHARTS, COLOUR_HEX
+from .models import Order, OrderItem
 
 
 # ---------------------------------------------------------------------------
@@ -209,12 +211,24 @@ def checkout(request):
                 **totals,
             })
 
-        # Build line items
+        # --- Persist the order locally FIRST, before Square is involved at all.
+        # This is our source of truth — Square is just the payment rail.
+        order = Order.objects.create(name=name, email=email, notes=notes, status=Order.STATUS_PENDING)
+        for item in cart:
+            OrderItem.objects.create(
+                order=order,
+                product_slug=item['slug'],
+                product_name=item['name'],
+                colour=item['colour'],
+                size=item['size'],
+                price=item['price'],
+                qty=item['qty'],
+            )
+
+        # Build Square line items
         line_items = []
-        note_parts = []
         for item in cart:
             desc = f"{item['name']} – {item['colour']}, Size {item['size']}"
-            note_parts.append(f"{item['qty']}x {desc}")
             line_items.append({
                 'name': desc,
                 'quantity': str(item['qty']),
@@ -224,13 +238,8 @@ def checkout(request):
                 },
             })
 
-        order_note = f"Order for {name} ({email})"
-        if notes:
-            order_note += f". Notes: {notes}"
-        order_note += ". Items: " + "; ".join(note_parts)
-
         location_id = os.environ.get('SQUARE_LOCATION_ID')
-        request.session['store_buyer'] = {'name': name, 'email': email}
+        request.session['store_order_id'] = order.id
 
         try:
             client = get_square_client()
@@ -242,6 +251,7 @@ def checkout(request):
                     'metadata': {
                         'buyer_name': name,
                         'buyer_email': email,
+                        'local_order_id': str(order.id),
                     },
                 },
                 checkout_options={
@@ -253,10 +263,18 @@ def checkout(request):
             )
 
             url = result.payment_link.url
+            order.square_payment_link_id = getattr(result.payment_link, 'id', '') or ''
+            order.square_order_id = getattr(result.payment_link, 'order_id', '') or ''
+            order.save(update_fields=['square_payment_link_id', 'square_order_id'])
+
             save_cart(request, [])
             return redirect(url)
 
         except Exception as e:
+            # Payment link failed — the order record stays as 'pending' so nothing
+            # is lost, but flag it clearly for review.
+            order.notes = (order.notes + f"\n[Payment link creation failed: {e}]").strip()
+            order.save(update_fields=['notes'])
             messages.error(request, f'Payment could not be started: {str(e)}')
 
     return render(request, 'store/checkout.html', {
@@ -271,7 +289,15 @@ def checkout(request):
 # ---------------------------------------------------------------------------
 
 def order_success(request):
-    buyer = request.session.pop('store_buyer', {})
+    order_id = request.session.pop('store_order_id', None)
+    order = None
+    if order_id:
+        order = Order.objects.filter(id=order_id).first()
+        if order and order.status == Order.STATUS_PENDING:
+            order.status = Order.STATUS_PAID
+            order.save(update_fields=['status'])
+
+    buyer = {'name': order.name, 'email': order.email} if order else {}
     return render(request, 'store/success.html', {
         'buyer': buyer,
         'cart_count': 0,
@@ -279,6 +305,10 @@ def order_success(request):
 
 
 def order_cancel(request):
+    order_id = request.session.get('store_order_id')
+    if order_id:
+        Order.objects.filter(id=order_id, status=Order.STATUS_PENDING).update(status=Order.STATUS_CANCELLED)
+
     return render(request, 'store/cancel.html', {
         'cart_count': sum(i['qty'] for i in get_cart(request)),
     })
@@ -293,4 +323,44 @@ def size_chart(request):
     return render(request, 'store/size_chart.html', {
         'size_charts': SIZE_CHARTS,
         'cart_count': sum(i['qty'] for i in cart),
+    })
+
+
+# ---------------------------------------------------------------------------
+# Order report (staff only)
+# ---------------------------------------------------------------------------
+
+@staff_member_required
+def order_report(request):
+    status_filter = request.GET.get('status', 'paid')
+
+    orders = Order.objects.prefetch_related('items').all()
+    if status_filter in ('paid', 'pending', 'cancelled'):
+        orders = orders.filter(status=status_filter)
+    # status_filter == 'all' -> no filter
+
+    rows = []
+    for order in orders:
+        for item in order.items.all():
+            rows.append({
+                'order_id': order.id,
+                'date': order.created_at,
+                'buyer_name': order.name,
+                'buyer_email': order.email,
+                'status': order.status,
+                'product_name': item.product_name,
+                'colour': item.colour,
+                'size': item.size,
+                'qty': item.qty,
+                'price': item.price,
+                'subtotal': item.subtotal,
+            })
+
+    grand_total = sum(r['subtotal'] for r in rows)
+
+    return render(request, 'store/report.html', {
+        'rows': rows,
+        'status_filter': status_filter,
+        'grand_total': grand_total,
+        'cart_count': sum(i['qty'] for i in get_cart(request)),
     })
