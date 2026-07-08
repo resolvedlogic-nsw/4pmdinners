@@ -3,9 +3,34 @@
 {% block title %}Shop – Lighthouse Merch{% endblock %}
 {% block nav_shop %}active{% endblock %}
 
+{% block extra_head %}
+<style>
+  .merch-banner {
+    width: 100%;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    margin-bottom: 2rem;
+  }
+  .merch-banner img {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+</style>
+{% endblock %}
+
 {% block content %}
 <h1 class="page-title">Lighthouse Merch</h1>
 <p class="page-sub">Pickup available at church &nbsp;·&nbsp; <a href="{% url 'store:size_chart' %}" style="color:var(--green-mid)">Size Guide →</a></p>
+
+<div class="merch-banner">
+  <img
+    src="{% static 'store/img/merch-title.png' %}"
+    alt="Lighthouse Church Merchandise"
+     
+  >
+</div>
 
 {% for category, products in grouped.items %}
   <h2 class="section-heading">{{ category }}</h2>
