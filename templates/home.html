@@ -32,20 +32,20 @@
             <img src="{% static 'merch.jpg' %}" alt="Merch">
         </a>
 
-    {% elif current_time < "2026-07-12 00:00" %}
+    {% elif current_time < "2026-07-19 00:00" %}
         {# FINAL WEEK #}
         <a href="/store/"    class="branch-card-image">
     <img src="{% static 'merchweek.jpg' %}" alt="Merch">
             
         </a>
 
-    {% elif current_time < "2026-07-12 23:59" %}
+    {% elif current_time < "2026-07-19 23:59" %}
         {# FINAL DAY #}
         <a href="/store/"    class="branch-card-image">
     <img src="{% static 'merchday.jpg' %}" alt="Merch">
         </a>
 
-    {% elif current_time < "2026-07-18 23:59" %}
+    {% elif current_time < "2026-07-23 23:59" %}
         {# CLOSED BUT STILL VISIBLE FOR 6 DAYS — NO LINK #}
         <div class="branch-card-image">
     <img src="{% static 'merchclosed.jpg' %}" alt="Merch Closed">
