@@ -87,10 +87,10 @@ PRODUCTS = {
         'size_chart': 'womens-slim-tshirts',
         'sizes': ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'],
         'variants': {
+            'Sage':      {'price': 20, 'image': 'ws-sage.png'},
             'Navy':      {'price': 20, 'image': 'ws-navy.png'},
             'Black':     {'price': 20, 'image': 'ws-black.png'},
             'Grey Marle':{'price': 20, 'image': 'ws-grey.png'},
-            'Sage':      {'price': 20, 'image': 'ws-sage.png'},
             'White':     {'price': 20, 'image': 'ws-white.png'},
         },
     },
@@ -112,10 +112,10 @@ PRODUCTS = {
         'size_chart': 'kids-hoodies',
         'sizes': ['2', '4', '6', '8', '10', '12', '14', '16',],
         'variants': {
+            'Pink':      {'price': 30, 'image': 'kh-pink.png'},
             'Navy':      {'price': 30, 'image': 'kh-navy.png'},
             'Grey Marle':{'price': 30, 'image': 'kh-grey.png'},
-            'Pink':      {'price': 30, 'image': 'kh-pink.png'},
-            'Red':       {'price': 30, 'image': 'kh-red.png'},
+                        'Red':       {'price': 30, 'image': 'kh-red.png'},
         },
     },
     'kids-tshirts': {
@@ -124,11 +124,12 @@ PRODUCTS = {
         'size_chart': 'kids-tshirts',
         'sizes': ['2', '4', '6', '8', '10', '12', '14', '16',],
         'variants': {
+            'Burgundy':{'price': 20, 'image': 'kt-burgundy.png'},
             'Navy':    {'price': 20, 'image': 'kt-navy.png'},
             'Black':   {'price': 20, 'image': 'kt-black.png'},
             'Sage':    {'price': 20, 'image': 'kt-sage.png'},
             'Pink':    {'price': 20, 'image': 'kt-pink.png'},
-            'Burgundy':{'price': 20, 'image': 'kt-burgundy.png'},
+            
         },
     },
     
