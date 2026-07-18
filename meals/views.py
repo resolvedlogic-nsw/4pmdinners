@@ -46,6 +46,32 @@ def make_qr_svg(data: str) -> str:
 def _site_base_url(request):
     return f"{request.scheme}://{request.get_host()}"
 
+def _build_redeem_nonce_from_order(order):
+    """
+    Turn a completed 'redeem it now' top-up order into a QRCodeNonce, using
+    the same products/quantities the family just paid for. Idempotent: if a
+    nonce already exists for this order (e.g. the success page was reloaded),
+    that same nonce is returned instead of a new one.
+    """
+    existing = getattr(order, 'redemption_nonce', None)
+    if existing is not None:
+        return existing
+
+    product_list = []
+    for item in order.cart_data:
+        pid = item.get('product_id')
+        qty = int(item.get('quantity', 0))
+        if pid and qty > 0:
+            product_list.append({'id': pid, 'qty': qty})
+
+    return QRCodeNonce.objects.create(
+        family=order.family,
+        branch=order.branch,
+        credit_units=order.credits_to_add,
+        child_ids=product_list,
+        order=order,
+    )
+
 # ─────────────────────────────────────────────────────────────────────────────
 #  Home & Branch Index
 # ─────────────────────────────────────────────────────────────────────────────
@@ -334,7 +360,7 @@ def generate_qr(request, branch_slug):
             return redirect('branch_user_summary', branch_slug=branch_slug)
         total_cost = Decimal(count)
         if pocket.balance < total_cost:
-            messages.error(request, 'Insufficient credits in this programme pocket.')
+            messages.error(request, 'Insufficient balance in this programme pocket.')
             return redirect('branch_user_summary', branch_slug=branch_slug)
         nonce = QRCodeNonce.objects.create(family=family, branch=branch, credit_units=total_cost, child_ids=actual_ids)
     else:
@@ -352,7 +378,7 @@ def generate_qr(request, branch_slug):
             messages.error(request, 'Please select at least one item.')
             return redirect('branch_user_summary', branch_slug=branch_slug)
         if pocket.balance < total_cost:
-            messages.error(request, 'Insufficient credits in this programme pocket.')
+            messages.error(request, 'Insufficient balance in this programme pocket.')
             return redirect('branch_user_summary', branch_slug=branch_slug)
         
         product_list = [{'id': pid, 'qty': qty} for pid, qty in product_quantities.items()]
@@ -430,7 +456,8 @@ def topup_checkout(request, branch_slug):
                         total_aud     += line_aud
                         credits_to_add += line_credits
                         cart_items.append({
-                            'name':             f"{product.name} ({product.topup_bundle} credits)",
+                            'product_id':       product.id,
+                            'name':             f"{product.name} (${product.topup_credits} added)",
                             'quantity':         str(qty),
                             'unit_price_cents': int(product.price_aud * 100),
                         })
@@ -444,6 +471,11 @@ def topup_checkout(request, branch_slug):
 
     cart_summary = ', '.join(summary_parts)
 
+    # "Redeem immediately" only makes sense where redemption is itemised by
+    # product/quantity. Children's programmes redeem by picking a child, not
+    # by product, so that flow always goes back through the normal picker.
+    redeem_now = (request.POST.get('redeem_now') == 'yes') and not branch.is_children_programme
+
     order = SquarePaymentOrder.objects.create(
         family=family,
         branch=branch,
@@ -451,6 +483,7 @@ def topup_checkout(request, branch_slug):
         amount_aud=total_aud,
         cart_summary=cart_summary,
         cart_data=cart_items,
+        redeem_immediately=redeem_now,
     )
 
     base        = _site_base_url(request)
@@ -486,6 +519,8 @@ def topup_success(request, branch_slug):
     if order.status == 'completed':
         ctx = branch_ctx(branch)
         ctx.update({'family': family, 'order': order, 'pocket': get_pocket(family, branch), 'already_processed': True})
+        if order.redeem_immediately:
+            ctx['redeem_nonce'] = _build_redeem_nonce_from_order(order)
         return render(request, 'meals/topup_success.html', ctx)
 
     paid = verify_payment(order.square_order_id) if order.square_order_id else False
@@ -503,7 +538,7 @@ def topup_success(request, branch_slug):
             reason='online_topup',
             performed_by='square_online',
             notes=(f"Square online: {order.cart_summary} "
-                   f"(${order.amount_aud} AUD) → +{order.credits_to_add} credits"),
+                   f"(${order.amount_aud} AUD) → +${order.credits_to_add} balance"),
         )
         order.status       = 'completed'
         order.completed_at = timezone.now()
@@ -511,6 +546,8 @@ def topup_success(request, branch_slug):
 
         ctx = branch_ctx(branch)
         ctx.update({'family': family, 'order': order, 'pocket': pocket, 'already_processed': False})
+        if order.redeem_immediately:
+            ctx['redeem_nonce'] = _build_redeem_nonce_from_order(order)
         return render(request, 'meals/topup_success.html', ctx)
     else:
         ctx = branch_ctx(branch)
@@ -557,7 +594,7 @@ def topup_webhook(request, branch_slug):
                     reason='online_topup',
                     performed_by='square_online',
                     notes=(f"Square webhook: {order.cart_summary} "
-                           f"(${order.amount_aud} AUD) → +{order.credits_to_add} credits"),
+                           f"(${order.amount_aud} AUD) → +${order.credits_to_add} balance"),
                 )
                 order.status       = 'completed'
                 order.completed_at = timezone.now()
@@ -767,7 +804,7 @@ def kiosk_export_transactions(request, branch_slug):
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = f'attachment; filename="{branch_slug}_transactions_{start_date}_to_{end_date}.csv"'
     writer = csv.writer(response)
-    writer.writerow(['Date/Time', 'Family', 'Credits (Delta)', 'Reason', 'Handled By', 'Notes'])
+    writer.writerow(['Date/Time', 'Family', 'Balance Change ($)', 'Reason', 'Handled By', 'Notes'])
     
     for t in txns:
         writer.writerow([
@@ -805,7 +842,7 @@ def api_redeem_qr(request, branch_slug):
     pocket = get_pocket(family, branch)
 
     if pocket.balance < nonce.credit_units:
-        return JsonResponse({'success': False, 'error': 'Insufficient credits.'})
+        return JsonResponse({'success': False, 'error': 'Insufficient balance.'})
 
     pocket.balance -= nonce.credit_units
     pocket.save(update_fields=['balance'])
@@ -880,7 +917,7 @@ def api_kiosk_deduct(request, branch_slug):
     if total_cost <= 0:
         return JsonResponse({'success': False, 'error': 'Nothing to deduct.'})
     if pocket.balance < total_cost:
-        return JsonResponse({'success': False, 'error': 'Insufficient credits.'})
+        return JsonResponse({'success': False, 'error': 'Insufficient balance.'})
 
     pocket.balance -= total_cost
     pocket.save(update_fields=['balance'])

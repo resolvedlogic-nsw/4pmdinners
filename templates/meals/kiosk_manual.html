@@ -42,7 +42,7 @@
       </div>
       
       {% if not is_free_programme %}
-      <span class="balance" style="font-weight:600; color:var(--green-deep);">{{ pocket.balance|floatformat:"-2" }} cr</span>
+      <span class="balance" style="font-weight:600; color:var(--green-deep);">${{ pocket.balance|floatformat:"-2" }}</span>
       {% endif %}
     </li>
     {% empty %}

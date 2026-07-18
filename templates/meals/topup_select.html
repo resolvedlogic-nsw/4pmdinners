@@ -8,14 +8,14 @@
 <div class="animate-in">
   <p class="text-muted" style="font-size:0.85rem; text-transform:uppercase; letter-spacing:.06em; font-weight:600; margin-bottom:4px;">{{ branch.name }}</p>
   <h1 style="margin-bottom:8px;">Top Up Online</h1>
-  <p>Select a credit bundle to purchase securely through Square.</p>
+  <p>Add balance to your account, paid securely through Square.</p>
 </div>
 
 <div class="card animate-in delay-1" style="background:var(--green-pale); border-left:4px solid var(--green-light); margin-bottom:20px;">
   <div style="display:flex; align-items:center; gap:10px;">
     <span style="font-size:1.5rem;">💳</span>
     <div>
-      <div style="font-weight:600; color:var(--green-deep);">Current balance: {{ family.credit_units|floatformat:"-2" }} credits</div>
+      <div style="font-weight:600; color:var(--green-deep);">Current balance: ${{ pocket.balance|floatformat:"-2" }}</div>
       <div class="text-muted" style="font-size:0.85rem;">{{ family.display_name }}</div>
     </div>
   </div>
@@ -32,7 +32,7 @@
           <div style="font-size:1.5rem; margin-bottom:4px;">{{ product.icon }}</div>
           <div style="font-weight:700; font-size:1.05rem; color:var(--green-deep);">{{ product.name }}</div>
           <div class="text-muted" style="font-size:0.85rem; margin-top:2px;">
-            ${{ product.price_aud }} AUD = {{ product.topup_credits }} credits
+            Pay ${{ product.price_aud }} → adds ${{ product.topup_credits }} to your balance
           </div>
         </div>
       </div>
@@ -58,10 +58,29 @@
       <span id="grand-total-aud">$0.00</span>
     </div>
     <div style="display:flex; justify-content:space-between; margin-top:8px; font-size:0.9rem;">
-      <span class="text-muted">Total Credits Received</span>
-      <strong id="grand-total-credits" style="color:var(--green-deep);">0</strong>
+      <span class="text-muted">Balance Added</span>
+      <strong id="grand-total-credits" style="color:var(--green-deep);">$0.00</strong>
     </div>
   </div>
+
+  {% if not branch.is_children_programme %}
+  <div class="card animate-in delay-3" style="margin-top:16px; padding:20px;">
+    <div style="font-weight:600; margin-bottom:10px;">Will you use this now?</div>
+    <p class="text-muted" style="font-size:0.85rem; margin-bottom:14px;">
+      If you're about to order what's in this cart, say yes and we'll take you straight to your QR code after payment — no need to select it again.
+    </p>
+    <div style="display:flex; gap:10px;">
+      <label class="redeem-now-option" style="flex:1;">
+        <input type="radio" name="redeem_now" value="yes" style="display:none;">
+        <div class="redeem-now-btn">✅ Yes, use it now</div>
+      </label>
+      <label class="redeem-now-option" style="flex:1;">
+        <input type="radio" name="redeem_now" value="no" checked style="display:none;">
+        <div class="redeem-now-btn">🕓 No, just top up</div>
+      </label>
+    </div>
+  </div>
+  {% endif %}
 
   <div class="animate-in delay-4" style="margin-top:20px;">
     <button type="submit" class="btn btn-primary" id="pay-btn" disabled style="font-size:1.1rem; min-height:60px;">
@@ -76,6 +95,17 @@
 {% endblock %}
 
 {% block scripts %}
+<style>
+  .redeem-now-btn {
+    text-align:center; padding:12px 8px; border-radius:10px;
+    border:2px solid var(--cream-dark); font-weight:600; font-size:0.9rem;
+    cursor:pointer; transition:all .15s ease; color:var(--ink-muted);
+  }
+  input[value="yes"]:checked + .redeem-now-btn,
+  input[value="no"]:checked + .redeem-now-btn {
+    border-color:var(--green-light); background:var(--green-pale); color:var(--green-deep);
+  }
+</style>
 <script>
 const products = {
   {% for product in online_products %}
@@ -102,7 +132,7 @@ function changeQty(id, delta) {
   }
   
   document.getElementById('grand-total-aud').textContent = '$' + totalAud.toFixed(2);
-  document.getElementById('grand-total-credits').textContent = totalCredits;
+  document.getElementById('grand-total-credits').textContent = '$' + totalCredits.toFixed(2);
   document.getElementById('pay-btn').disabled = (totalAud === 0);
 }
 </script>

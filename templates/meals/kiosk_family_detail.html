@@ -11,8 +11,8 @@
   <p class="text-muted" style="font-size:0.85rem; text-transform:uppercase; letter-spacing:.06em; font-weight:600; margin-bottom:4px;">Manual entry</p>
   <h1 style="margin-bottom:12px;">{{ family.display_name }}</h1>
   <div class="credit-badge {% if pocket.balance <= 0 %}low{% endif %}" style="margin-bottom:20px;">
-    <span class="credit-num" id="live-balance">{{ pocket.balance|floatformat:"-2" }}</span>
-    <span>credits</span>
+    <span class="credit-num">$<span id="live-balance">{{ pocket.balance|floatformat:"-2" }}</span></span>
+    <span>balance</span>
   </div>
 </div>
 
@@ -37,7 +37,7 @@
     {% endif %}
     <div id="child-deduct-summary" style="display:none; margin-top:14px; padding:12px; background:#fff; border-radius:var(--radius-sm);">
       <div style="display:flex;justify-content:space-between;"><span class="text-muted">Attending</span><strong id="child-count-kiosk">0</strong></div>
-      <div style="display:flex;justify-content:space-between;margin-top:4px;"><span class="text-muted">Credits used</span><strong id="child-cost-kiosk">0</strong></div>
+      <div style="display:flex;justify-content:space-between;margin-top:4px;"><span class="text-muted">Amount used</span><strong id="child-cost-kiosk">0</strong></div>
       <div style="display:flex;justify-content:space-between;margin-top:4px;"><span class="text-muted">Balance after</span><strong id="child-after-kiosk">—</strong></div>
     </div>
 
@@ -46,7 +46,7 @@
     <div class="meal-row">
       <div>
         <div class="meal-label">{{ product.icon }} {{ product.name }}</div>
-        <div class="meal-cost">{{ product.credit_cost|floatformat:"-2" }} credit{% if product.credit_cost != 1 %}s{% endif %} each</div>
+        <div class="meal-cost">${{ product.credit_cost|floatformat:"-2" }} each</div>
       </div>
       <div class="meal-counter">
         <button type="button" class="counter-btn" id="kdec-{{ product.id }}" onclick="kAdjust({{ product.id }},-1)" disabled>−</button>
@@ -57,12 +57,12 @@
     {% endfor %}
 
     <div id="deduct-summary" style="display:none; margin-top:16px; padding:12px; background:#fff; border-radius:var(--radius-sm);">
-      <div style="display:flex;justify-content:space-between;"><span class="text-muted">Total cost</span><strong id="kiosk-total">0 credits</strong></div>
+      <div style="display:flex;justify-content:space-between;"><span class="text-muted">Total cost</span><strong id="kiosk-total">$0.00</strong></div>
       <div style="display:flex;justify-content:space-between;margin-top:4px;"><span class="text-muted">Balance after</span><strong id="kiosk-after">—</strong></div>
     </div>
   {% endif %}
 
-  <div class="alert alert-warning" id="kiosk-insufficient" style="display:none; margin-top:12px;">⚠ Insufficient credits.</div>
+  <div class="alert alert-warning" id="kiosk-insufficient" style="display:none; margin-top:12px;">⚠ Insufficient balance.</div>
 
   <div class="form-group" style="margin-top:16px;">
     <label for="kiosk-notes">Check-in Notes (Optional)</label>
@@ -76,8 +76,8 @@
 
 <!-- ── Top-up section ─────────────────────────────────────────────────────── -->
 <div class="card animate-in delay-2" style="background:var(--success-bg); border-left:4px solid var(--success);">
-  <h3 style="margin-bottom:12px;">Top Up Credits</h3>
-  <p class="text-muted" style="font-size:0.9rem; margin-bottom:12px;">Add newly purchased credits to this account.</p>
+  <h3 style="margin-bottom:12px;">Top Up Balance</h3>
+  <p class="text-muted" style="font-size:0.9rem; margin-bottom:12px;">Add a payment received to this account's balance.</p>
 
   <div style="display:flex; gap:12px; margin-bottom:12px;">
     <input type="number" id="topup-amount" min="1" placeholder="0"
@@ -112,7 +112,7 @@
       {% if txn.notes %}<div class="text-muted" style="font-size:0.8rem;">{{ txn.notes }}</div>{% endif %}
     </div>
     <div class="txn-delta {% if txn.credit_delta >= 0 %}pos{% else %}neg{% endif %}">
-      {% if txn.credit_delta >= 0 %}+{% endif %}{{ txn.credit_delta|floatformat:"-2" }}
+      {% if txn.credit_delta >= 0 %}+${{ txn.credit_delta|floatformat:"-2" }}{% else %}-${{ txn.credit_delta|floatformat:"-2"|cut:"-" }}{% endif %}
     </div>
   </div>
   {% endfor %}
@@ -171,7 +171,7 @@ const isFreeProgramme = isChildren && kProducts.every(p => p.cost === 0);
         seen.add(amount);
         const btn = document.createElement('button');
         btn.type = 'button';
-        btn.innerHTML = `💡 <b>${amount} cr</b> = ${text}`;
+        btn.innerHTML = `💡 <b>$${amount}</b> = ${text}`;
         btn.style.cssText = 'background:#fff; border:1px solid #ccc; border-radius:16px; padding:6px 12px; font-size:0.85rem; cursor:pointer;';
         btn.onclick = () => document.getElementById('topup-amount').value = amount;
         container.appendChild(btn);
@@ -210,8 +210,8 @@ function updateChildSummary() {
         document.getElementById('child-cost-kiosk').textContent = 'Free';
         document.getElementById('child-after-kiosk').innerHTML = '<span style="font-size:1.4rem;">∞</span>';
     } else {
-        document.getElementById('child-cost-kiosk').textContent  = cost + ' credit' + (cost!==1?'s':'');
-        document.getElementById('child-after-kiosk').textContent = after + ' credits';
+        document.getElementById('child-cost-kiosk').textContent  = '$' + cost.toFixed(2);
+        document.getElementById('child-after-kiosk').textContent = '$' + after.toFixed(2);
     }
 
     document.getElementById('kiosk-insufficient').style.display = (count>0 && after<0) ? '' : 'none';
@@ -249,8 +249,8 @@ function kRender() {
     });
     
     document.getElementById('deduct-summary').style.display = total > 0 ? '' : 'none';
-    document.getElementById('kiosk-total').textContent = total + ' credit' + (total!==1?'s':'');
-    document.getElementById('kiosk-after').textContent = after + ' credits';
+    document.getElementById('kiosk-total').textContent = '$' + total.toFixed(2);
+    document.getElementById('kiosk-after').textContent = '$' + after.toFixed(2);
     document.getElementById('kiosk-insufficient').style.display = (total>0 && after<0) ? '' : 'none';
     document.getElementById('deduct-btn').disabled = total===0 || after<0;
 }
@@ -268,7 +268,7 @@ function confirmDeduct() {
     } else {
         let total = 0;
         kProducts.forEach(p => total += kQtys[p.id] * p.cost);
-        body    = `Deduct ${total} credit${total!==1?'s':''} from {{ family.display_name }}?`;
+        body    = `Deduct $${total.toFixed(2)} from {{ family.display_name }}?`;
         payload = { family_id: familyId, notes: notesText };
         kProducts.forEach(p => payload[`qty_${p.id}`] = kQtys[p.id]);
     }
@@ -295,7 +295,7 @@ async function doDeduct(payload) {
         showResult(data.success,
             data.success ? '✅' : '❌',
             data.success ? 'Done!' : 'Failed',
-            data.success ? `${data.credits_deducted} credits deducted. New balance: ${data.new_balance}.` : (data.error || 'Something went wrong.')
+            data.success ? `$${data.credits_deducted} deducted. New balance: $${data.new_balance}.` : (data.error || 'Something went wrong.')
         );
     } catch(e) { dismissConfirm(); alert('Network error.'); }
     okBtn.disabled = false;
@@ -305,9 +305,9 @@ async function doDeduct(payload) {
 // ── Top-up ────────────────────────────────────────────────────────────────────
 function confirmTopUp() {
     const amount = parseFloat(document.getElementById('topup-amount').value);
-    if (!amount || amount <= 0) { alert('Enter a valid credit amount.'); return; }
+    if (!amount || amount <= 0) { alert('Enter a valid amount.'); return; }
     document.getElementById('confirm-title').textContent = 'Confirm top up?';
-    document.getElementById('confirm-body').textContent  = `Add ${amount} credits to {{ family.display_name }}?`;
+    document.getElementById('confirm-body').textContent  = `Add $${amount.toFixed(2)} to {{ family.display_name }}?`;
     document.getElementById('confirm-ok').onclick = () => doTopUp(amount);
     document.getElementById('confirm-overlay').classList.add('show');
 }
@@ -327,7 +327,7 @@ async function doTopUp(amount) {
         showResult(data.success,
             data.success ? '✅' : '❌',
             data.success ? 'Top Up Complete!' : 'Failed',
-            data.success ? `${amount} credits added. New balance: ${data.new_balance}.` : (data.error||'Error.')
+            data.success ? `$${amount.toFixed(2)} added. New balance: $${data.new_balance}.` : (data.error||'Error.')
         );
         if (data.success) document.getElementById('live-balance').textContent = data.new_balance;
     } catch(e) { dismissConfirm(); alert('Network error.'); }

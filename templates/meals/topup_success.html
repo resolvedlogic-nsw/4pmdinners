@@ -8,8 +8,8 @@
     <div class="animate-in">
       <div style="font-size:4rem; margin-bottom:16px;">⏳</div>
       <h1 style="color:var(--green-deep);">Payment Processing</h1>
-      <p>Your payment is being confirmed by Square. Your credits will appear shortly — please check back in a minute.</p>
-      <p class="text-muted" style="font-size:0.85rem;">If credits don't appear within 5 minutes, please contact us.</p>
+      <p>Your payment is being confirmed by Square. Your balance will update shortly — please check back in a minute.</p>
+      <p class="text-muted" style="font-size:0.85rem;">If your balance doesn't update within 5 minutes, please contact us.</p>
     </div>
     <div class="animate-in delay-1 mt-24" style="width:100%;">
       <a href="{% url 'branch_user_summary' branch.slug %}" class="btn btn-primary">Back to Summary</a>
@@ -24,22 +24,25 @@
       <h1 style="color:var(--success);">Already Processed</h1>
       <p>This payment was already applied to your account.</p>
       <div class="credit-badge" style="margin:16px auto; display:inline-flex;">
-        <span class="credit-num">{{ family.credit_units|floatformat:"-2" }}</span>
-        <span>credits</span>
+        <span class="credit-num">${{ pocket.balance|floatformat:"-2" }}</span>
+        <span>balance</span>
       </div>
     </div>
-    <div class="animate-in delay-1 mt-24" style="width:100%;">
-      <a href="{% url 'branch_user_summary' branch.slug %}" class="btn btn-primary">Back to Summary</a>
+    <div class="animate-in delay-1 mt-24" style="width:100%; display:flex; flex-direction:column; gap:10px;">
+      {% if redeem_nonce %}
+        <a href="{% url 'branch_qr_display' branch.slug redeem_nonce.id %}" class="btn btn-primary" style="font-size:1.1rem; min-height:56px;">📱 Show My QR Code</a>
+      {% endif %}
+      <a href="{% url 'branch_user_summary' branch.slug %}" class="btn {% if redeem_nonce %}btn-secondary{% else %}btn-primary{% endif %}">Back to Summary</a>
     </div>
   </div>
 
 {% else %}
-  {# Successful payment and credits applied #}
+  {# Successful payment and balance applied #}
   <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;text-align:center;">
     <div class="animate-in">
       <div style="font-size:4rem; margin-bottom:16px;">🎉</div>
       <h1 style="color:var(--success);">Payment Successful!</h1>
-      <p>Your credits have been added to your account.</p>
+      <p>Your balance has been topped up.</p>
     </div>
 
     <div class="card animate-in delay-1" style="width:100%; max-width:340px; margin:20px auto; text-align:left;">
@@ -52,18 +55,28 @@
         <strong>${{ order.amount_aud }} AUD</strong>
       </div>
       <div style="display:flex; justify-content:space-between; padding:8px 0;">
-        <span class="text-muted">Credits added</span>
-        <strong style="color:var(--success);">+{{ order.credits_to_add|floatformat:"-2" }}</strong>
+        <span class="text-muted">Balance added</span>
+        <strong style="color:var(--success);">+${{ order.credits_to_add|floatformat:"-2" }}</strong>
       </div>
     </div>
     <div class="credit-badge animate-in delay-2" style="margin:0 auto 24px; display:inline-flex;">
-      <span class="credit-num">{{ pocket.balance|floatformat:"-2" }}</span>
-      <span>credits remaining</span>
+      <span class="credit-num">${{ pocket.balance|floatformat:"-2" }}</span>
+      <span>balance remaining</span>
     </div>
 
-    <div class="animate-in delay-3" style="width:100%;">
-      <a href="{% url 'branch_user_summary' branch.slug %}" class="btn btn-primary">Back to Summary</a>
-    </div>
+    {% if redeem_nonce %}
+      <div class="card animate-in delay-2" style="width:100%; max-width:340px; margin:0 auto 20px; background:var(--green-pale); border:none; text-align:center; padding:16px;">
+        <p style="margin:0; font-weight:600; color:var(--green-deep);">You said you'd use this now — ready when you are.</p>
+      </div>
+      <div class="animate-in delay-3" style="width:100%; display:flex; flex-direction:column; gap:10px;">
+        <a href="{% url 'branch_qr_display' branch.slug redeem_nonce.id %}" class="btn btn-primary" style="font-size:1.1rem; min-height:56px;">📱 Show My QR Code</a>
+        <a href="{% url 'branch_user_summary' branch.slug %}" class="btn btn-secondary">Back to Summary</a>
+      </div>
+    {% else %}
+      <div class="animate-in delay-3" style="width:100%;">
+        <a href="{% url 'branch_user_summary' branch.slug %}" class="btn btn-primary">Back to Summary</a>
+      </div>
+    {% endif %}
   </div>
 {% endif %}
 

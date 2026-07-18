@@ -157,7 +157,7 @@ async function redeemQR(payload) {
     });
     const data = await res.json();
     if (data.success) {
-      let body = `${data.credits_deducted} credit${data.credits_deducted !== 1 ? 's' : ''} deducted.\nBalance: ${data.new_balance} credits.`;
+      let body = `$${data.credits_deducted} deducted.\nBalance: $${data.new_balance}.`;
       if (data.children_checked_in && data.children_checked_in.length) {
         body += `\n\nChecked in:\n${data.children_checked_in.join(', ')}`;
       }

@@ -8,13 +8,13 @@
 
 {% if not is_free_programme %}
 <div class="wallet-container" style="display:flex; flex-direction:column; gap:16px;">
-    <h2>Your Church Wallet</h2>
+    <h2>Your Balance</h2>
     
     <div class="card pocket-card" style="padding:16px; border:1px solid var(--cream-dark); border-radius:8px; border-left:4px solid var(--green-light);">
         <div style="display:flex; justify-content:space-between; align-items:center;">
             <div>
                 <h3 style="margin:0; font-size:1.2rem;">{{ pocket.branch.icon }} {{ pocket.branch.name }}</h3>
-                <p style="font-size:1.5rem; font-weight:bold; margin:8px 0 0 0;">{{ pocket.balance|floatformat:"-2" }} cr</p>
+                <p style="font-size:1.5rem; font-weight:bold; margin:8px 0 0 0;">${{ pocket.balance|floatformat:"-2" }}</p>
                 </div>
             <div>
                 <a href="{% url 'branch_topup_select' pocket.branch.slug %}" class="btn btn-primary btn-sm">Top Up</a>
@@ -24,7 +24,7 @@
 </div>
 {% else %}
 <div class="animate-in" style="margin-bottom:20px; padding:12px; background:var(--green-pale); border-radius:8px; text-align:center; color:var(--green-deep); font-weight:600;">
-    {{ branch.icon }} This is a Free Programme. No credits required.
+    {{ branch.icon }} This is a Free Programme. No balance required.
 </div>
 {% endif %}
 
@@ -61,7 +61,7 @@
         <strong id="child-count-display" style="font-family:var(--font-display); font-size:1.2rem; color:var(--green-deep);">0</strong>
       </div>
       <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px;">
-        <span class="text-muted">Credits used</span>
+        <span class="text-muted">Amount used</span>
         <strong id="total-cost-display" style="font-size:1rem; color:var(--ink-muted);">0</strong>
       </div>
       <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px;">
@@ -78,7 +78,7 @@
       <div class="meal-row">
         <div>
           <div class="meal-label">{{ product.icon }} {{ product.name }}</div>
-          <div class="meal-cost">{{ product.credit_cost|floatformat:"-2" }} credit{% if product.credit_cost != 1 %}s{% endif %} each</div>
+          <div class="meal-cost">${{ product.credit_cost|floatformat:"-2" }} each</div>
         </div>
         <div class="meal-counter">
           <button type="button" class="counter-btn" id="dec-{{ product.id }}" onclick="adjust({{ product.id }}, -1)" disabled>−</button>
@@ -93,17 +93,17 @@
     <div class="card animate-in delay-2" id="cost-summary" style="display:none;">
       <div style="display:flex; justify-content:space-between; align-items:center;">
         <span class="text-muted">Total cost</span>
-        <strong id="total-cost-display" style="font-size:1.2rem; font-family:var(--font-display); color:var(--green-deep);">0 credits</strong>
+        <strong id="total-cost-display" style="font-size:1.2rem; font-family:var(--font-display); color:var(--green-deep);">$0.00</strong>
       </div>
       <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px;">
         <span class="text-muted">Remaining after</span>
-        <strong id="remaining-display" style="font-size:1rem; color:var(--ink-muted);">— credits</strong>
+        <strong id="remaining-display" style="font-size:1rem; color:var(--ink-muted);">—</strong>
       </div>
     </div>
   {% endif %}
 
   <div class="alert alert-warning animate-in" id="insufficient-warning" style="display:none;">
-    ⚠ Insufficient credits. Please see the desk to top up.
+    ⚠ Insufficient balance. Please see the desk to top up.
   </div>
 
   <div class="animate-in delay-3">
@@ -125,7 +125,7 @@
                     {% if pocket_item.branch.is_no_fee_programme %}
                         <p style="font-size:1.1rem; font-weight:bold; margin:4px 0 0 0; color:var(--green-deep);">∞</p>
                     {% else %}
-                        <p style="font-size:1.1rem; font-weight:bold; margin:4px 0 0 0; color:var(--ink-muted);">{{ pocket_item.balance|floatformat:"-2" }} cr</p>
+                        <p style="font-size:1.1rem; font-weight:bold; margin:4px 0 0 0; color:var(--ink-muted);">${{ pocket_item.balance|floatformat:"-2" }}</p>
                     {% endif %}
                 </div>
                 
@@ -163,8 +163,8 @@ function updateChildCount() {
 
   document.getElementById('cost-summary').style.display = count > 0 ? '' : 'none';
   document.getElementById('child-count-display').textContent = count + (count === 1 ? ' child' : ' children');
-  document.getElementById('total-cost-display').textContent  = count + ' credit' + (count !== 1 ? 's' : '');
-  document.getElementById('remaining-display').textContent   = remaining + ' credits';
+  document.getElementById('total-cost-display').textContent  = '$' + count.toFixed(2);
+  document.getElementById('remaining-display').textContent   = '$' + remaining.toFixed(2);
   document.getElementById('insufficient-warning').style.display = (count > 0 && !canAfford) ? '' : 'none';
   document.getElementById('generate-btn').disabled = count === 0 || !canAfford;
 }
@@ -206,8 +206,8 @@ function render() {
   const canAfford   = remaining >= 0;
 
   document.getElementById('cost-summary').style.display = hasSelection ? '' : 'none';
-  document.getElementById('total-cost-display').textContent   = total + ' credit' + (total !== 1 ? 's' : '');
-  document.getElementById('remaining-display').textContent    = remaining + ' credits';
+  document.getElementById('total-cost-display').textContent   = '$' + total.toFixed(2);
+  document.getElementById('remaining-display').textContent    = '$' + remaining.toFixed(2);
   document.getElementById('insufficient-warning').style.display = (hasSelection && !canAfford) ? '' : 'none';
   document.getElementById('generate-btn').disabled = !hasSelection || !canAfford;
 }

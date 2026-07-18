@@ -218,6 +218,12 @@ class SquarePaymentOrder(models.Model):
     square_payment_link_id = models.CharField(max_length=200, blank=True)
     square_payment_id      = models.CharField(max_length=200, blank=True)
     status                 = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+
+    # If True, the family indicated at checkout that they want to redeem this
+    # top-up immediately — so on success we skip straight to a QR built from
+    # the same cart instead of sending them back to pick items again.
+    redeem_immediately     = models.BooleanField(default=False)
+
     created_at             = models.DateTimeField(default=timezone.now)
     completed_at           = models.DateTimeField(null=True, blank=True)
 
@@ -236,6 +242,13 @@ class QRCodeNonce(models.Model):
     branch       = models.ForeignKey(Branch, on_delete=models.PROTECT, related_name='qr_nonces', null=True, blank=True)
     credit_units = models.DecimalField(max_digits=10, decimal_places=2)
     child_ids    = models.JSONField(default=list, blank=True)
+    # Set when this nonce was auto-generated from a "redeem it now" top-up,
+    # so repeat visits to the success page reuse the same nonce instead of
+    # minting a second one worth the same balance.
+    order        = models.OneToOneField(
+        SquarePaymentOrder, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='redemption_nonce'
+    )
     created_at   = models.DateTimeField(default=timezone.now)
     expires_at   = models.DateTimeField()
     used         = models.BooleanField(default=False)

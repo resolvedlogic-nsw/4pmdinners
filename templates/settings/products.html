@@ -22,8 +22,11 @@
       {% if not product.is_active %}<span style="font-size:0.7rem; background:#999; color:#fff; padding:2px 6px; border-radius:4px; margin-left:8px;">INACTIVE</span>{% endif %}
     </div>
     <div class="text-muted" style="font-size:0.85rem;">
-      {{ product.credit_cost|floatformat:"-2" }} cr each &nbsp;·&nbsp;
-      
+      ${{ product.credit_cost|floatformat:"-2" }} per item
+      {% if product.available_online %}
+        &nbsp;·&nbsp; ${{ product.price_aud|floatformat:"-2" }} online → ${{ product.topup_credits|floatformat:"-2" }} balance ({{ product.topup_bundle }} items)
+      {% endif %}
+      &nbsp;·&nbsp;
       {% if product.is_active %}
         <span title="Date Created">Created: {{ product.created_at|date:"d M Y" }}</span>
       {% else %}
@@ -45,8 +48,11 @@
 
 <!-- Add product form -->
 <div class="card animate-in delay-2">
-  <h3 style="margin-bottom:16px;">Add Product</h3>
-  <form method="post">
+  <h3 style="margin-bottom:4px;">Add Product</h3>
+  <p class="text-muted" style="font-size:0.85rem; margin-bottom:16px;">
+    Every family balance is now in real dollars — $1 of balance = $1. There are two separate things to set below: what it costs to redeem one item, and (if you sell it online) what people pay and how much balance that gives them.
+  </p>
+  <form method="post" id="product-form">
     {% csrf_token %}
 
     <div class="form-group">
@@ -65,33 +71,41 @@
       </div>
     </div>
 
-    <div style="display:flex; gap:12px;">
-      <div class="form-group" style="flex:1;">
-        <label>Credit Cost (per item)</label>
-        <input type="number" name="credit_cost" step="0.5" min="0" placeholder="1" required>
-        <p class="text-muted" style="font-size:0.75rem; margin-top:4px;">Can be 0.5 for half-credits</p>
+    <div style="margin:20px 0 14px; padding:14px; background:var(--green-pale); border-radius:8px;">
+      <div style="font-weight:700; color:var(--green-deep); margin-bottom:2px;">1. What does one item cost from the balance?</div>
+      <p class="text-muted" style="font-size:0.8rem; margin-bottom:10px;">This is what gets deducted when someone redeems this item, in-person or via QR.</p>
+      <div class="form-group" style="margin-bottom:0;">
+        <label>Price per item ($)</label>
+        <input type="number" name="credit_cost" id="f-cost" step="0.5" min="0" placeholder="e.g. 5.00" required>
+        <p class="text-muted" style="font-size:0.75rem; margin-top:4px;">Can be a decimal, e.g. 2.50</p>
       </div>
     </div>
 
-    <div style="display:flex; gap:12px;">
-      <div class="form-group" style="flex:1;">
-        <label>Top-up Bundle Size</label>
-        <input type="number" name="topup_bundle" min="1" placeholder="10" value="10">
-        <p class="text-muted" style="font-size:0.75rem; margin-top:4px;">e.g. "10 sessions"</p>
+    <div style="margin-bottom:14px; padding:14px; background:var(--cream); border-radius:8px; border:1px solid var(--cream-dark);">
+      <div style="font-weight:700; margin-bottom:2px;">2. Online top-up bundle for this item (optional)</div>
+      <p class="text-muted" style="font-size:0.8rem; margin-bottom:10px;">Leave the price blank if this item can only be paid for in person. Otherwise, this defines one "buy now" bundle on the online top-up page.</p>
+
+      <div style="display:flex; gap:12px;">
+        <div class="form-group" style="flex:1;">
+          <label>Family pays ($)</label>
+          <input type="number" name="price_aud" id="f-price" step="0.01" min="0" placeholder="e.g. 50.00">
+          <p class="text-muted" style="font-size:0.75rem; margin-top:4px;">Charged via Square</p>
+        </div>
+        <div class="form-group" style="flex:1;">
+          <label>Balance added ($)</label>
+          <input type="number" name="topup_credits" id="f-added" min="1" placeholder="e.g. 50" value="10">
+          <p class="text-muted" style="font-size:0.75rem; margin-top:4px;">Added to their account</p>
+        </div>
       </div>
-      <div class="form-group" style="flex:1;">
-        <label>Credits per Bundle</label>
-        <input type="number" name="topup_credits" min="1" placeholder="10" value="10">
-        <p class="text-muted" style="font-size:0.75rem; margin-top:4px;">Credits added when bundle purchased</p>
+      <div class="form-group" style="margin-bottom:0;">
+        <label>Good for how many items?</label>
+        <input type="number" name="topup_bundle" id="f-bundle" min="1" placeholder="e.g. 10" value="10">
+        <p class="text-muted" style="font-size:0.75rem; margin-top:4px;">Just used for the "10× Adult Meal" label on the top-up page — not used in the money math.</p>
       </div>
+
+      <div id="bundle-check" style="margin-top:12px; padding:10px; border-radius:6px; font-size:0.85rem; font-weight:600;"></div>
     </div>
-    <div style="display:flex; gap:12px;">
-      <div class="form-group" style="flex:1;">
-        <label>AUD Price (for Online Top-up)</label>
-        <input type="number" name="price_aud" step="0.01" min="0" placeholder="e.g. 50.00">
-        <p class="text-muted" style="font-size:0.75rem; margin-top:4px;">Leave blank if in-person only</p>
-      </div>
-    </div>
+
     <button type="submit" class="btn btn-primary">Add Product</button>
   </form>
 </div>
@@ -100,4 +114,31 @@
   <a href="{% url 'settings_home' %}" class="text-muted" style="text-decoration:none; font-size:0.875rem;">← Back to Settings</a>
 </div>
 
+{% endblock %}
+
+{% block scripts %}
+<script>
+function checkBundleMath() {
+  const cost   = parseFloat(document.getElementById('f-cost').value)   || 0;
+  const added  = parseFloat(document.getElementById('f-added').value)  || 0;
+  const bundle = parseFloat(document.getElementById('f-bundle').value) || 0;
+  const box = document.getElementById('bundle-check');
+
+  if (!cost || !added || !bundle) { box.style.display = 'none'; return; }
+
+  const expected = cost * bundle;
+  box.style.display = 'block';
+
+  if (Math.abs(expected - added) < 0.01) {
+    box.style.background = '#e3f5e6'; box.style.color = 'var(--green-deep)';
+    box.textContent = `✓ Checks out: $${cost.toFixed(2)} × ${bundle} items = $${expected.toFixed(2)} balance added.`;
+  } else {
+    box.style.background = '#fdecea'; box.style.color = 'var(--danger)';
+    box.textContent = `⚠ Heads up: $${cost.toFixed(2)} × ${bundle} items = $${expected.toFixed(2)}, but you've set balance added to $${added.toFixed(2)}. That's fine if intentional (e.g. a bundle discount), otherwise double-check it.`;
+  }
+}
+['f-cost','f-added','f-bundle'].forEach(id => {
+  document.getElementById(id).addEventListener('input', checkBundleMath);
+});
+</script>
 {% endblock %}
