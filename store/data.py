@@ -132,7 +132,17 @@ PRODUCTS = {
             
         },
     },
-    
+    'test-do-not-use': {
+        'name': "Test - Do Not Use!",
+        'category': 'kids',
+        'size_chart': 'kids-tshirts',
+        'sizes': ['88'],
+        'variants': {
+            'Burgundy':{'price': 32, 'image': 'kt-burgundy.png'},
+
+            
+        },
+    },    
     
 }
 
