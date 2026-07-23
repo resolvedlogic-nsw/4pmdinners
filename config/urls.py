@@ -7,7 +7,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('login/', auth_views.LoginView.as_view(template_name='finances/login.html',redirect_authenticated_user=True,next_page='/finances/'), name='login'),
     path('logout/', custom_logout, name='logout'),
-    path('store/', include('store.urls')),
+    #path('store/', include('store.urls')),
     path('finances/', include('finances.urls')),
     path('', include('meals.urls')),
 ]
